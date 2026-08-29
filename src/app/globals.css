@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: linear-gradient(180deg, #070b26 0%, #101641 55%, #1d1550 100%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+  color: #f3f1ff;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 3.4s ease-in-out infinite;
+}
+
+.animate-twinkle-slow {
+  animation: twinkle 5.2s ease-in-out infinite;
+}

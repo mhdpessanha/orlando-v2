@@ -1,0 +1,9 @@
+node_modules
+.next
+data
+.env
+.git
+*.md
+.claude
+.DS_Store
+credentials
