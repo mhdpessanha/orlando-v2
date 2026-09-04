@@ -132,15 +132,53 @@ model GuideEntry {
   detalhes String? // opcional: texto longo do card expandido
 }
 
-model FinanceItem {
+// ── Financeiro (refeito 04/09/2026): pacote fechado por núcleo + lançamentos ──
+// Toda query filtra por núcleo do usuário no server (premissa 2).
+
+model Package {
+  id         String  @id
+  nucleo     String
+  descricao  String?
+  moeda      String?
+  valorTotal Float?
+  notas      String?
+
+  @@index([nucleo])
+}
+
+model Payment {
+  id        String  @id
+  nucleo    String
+  data      String? // AAAA-MM-DD
+  moeda     String?
+  valor     Float?
+  descricao String?
+
+  @@index([nucleo])
+}
+
+// Gastos do Murilo (só admin): o que ainda vai sair do bolso dele
+model Expense {
   id            String  @id
-  nucleo        String // toda query filtra por núcleo do usuário no server
   item          String
+  categoria     String?
   moeda         String?
-  valorTotal    Float?
+  valorPrevisto Float?
   valorPago     Float?
-  valorRestante Float?
+  prazo         String?
+  status        String? // vazio = em aberto; feito/pago = concluído
   notas         String?
+}
+
+// "Quanto levar": nucleo = todos ou um núcleo específico
+model BudgetHint {
+  id        String  @id
+  nucleo    String
+  categoria String
+  moeda     String?
+  valor     Float?
+  base      String? // "por dia por adulto", "total da viagem"…
+  notas     String?
 
   @@index([nucleo])
 }

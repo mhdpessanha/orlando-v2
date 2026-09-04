@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { db } from "../src/lib/db";
 import { runSync } from "../src/lib/sync";
+import { AbaNaoEncontrada } from "../src/lib/sync/sheets";
 
 type Fixture = Record<string, unknown[][]>;
 
@@ -43,10 +44,24 @@ const FIXTURE_OK: Fixture = {
     ["id", "secao", "ordem", "titulo", "conteudo"],
     ["g01", "aeroporto", "1", "Imigração", "MPC no celular antes da fila"],
   ],
-  Financeiro: [
-    ["id", "nucleo", "item", "moeda", "valor_total", "valor_pago", "valor_restante", "notas"],
-    ["f01", "pessanha", "Voos", "BRL", "R$ 18.400,00", "18400", "0", ""],
-    ["f02", "gabi", "Ingressos Disney", "USD", "3,450.10", "1.725,05", "1725.05", "metade paga"],
+  Pacote: [
+    ["id", "nucleo", "descricao", "moeda", "valor_total", "notas"],
+    ["pc01", "gabi", "Pacote completo", "BRL", "R$ 18.400,00", ""],
+    ["pc02", "vitor", "Pacote completo", "USD", "3,450.10", ""],
+  ],
+  Pagamentos: [
+    ["id", "nucleo", "data", "moeda", "valor", "descricao"],
+    ["pg01", "gabi", "2026-08-01", "BRL", "18400", "quitado"],
+    ["pg02", "vitor", "2026-08-15", "USD", "1.725,05", "metade"],
+  ],
+  Gastos: [
+    ["id", "item", "categoria", "moeda", "valor_previsto", "valor_pago", "prazo", "status", "notas"],
+    ["g01", "Hotel VM", "hospedagem", "USD", "1200", "", "2026-10-01", "", ""],
+  ],
+  Levar: [
+    ["id", "nucleo", "categoria", "moeda", "valor", "base", "notas"],
+    ["lv01", "todos", "Alimentação", "USD", "120", "por dia por adulto", ""],
+    ["lv02", "gabi", "Compras", "USD", "500", "total", ""],
   ],
   Magia: [
     ["id", "ordem", "tema", "texto"],
@@ -63,7 +78,7 @@ const FIXTURE_OK: Fixture = {
 function fetcherDe(fixture: Fixture) {
   return async (aba: string) => {
     const values = fixture[aba];
-    if (!values) throw new Error(`fixture sem a aba ${aba}`);
+    if (!values) throw new AbaNaoEncontrada(`fixture sem a aba ${aba}`);
     return values;
   };
 }
@@ -72,8 +87,10 @@ async function main() {
   // ── 1º sync: tudo válido ──
   const r1 = await runSync("teste-ok", fetcherDe(FIXTURE_OK));
   assert.equal(r1.ok, true, `sync 1 deveria passar: ${JSON.stringify(r1.abas)}`);
-  assert.equal(r1.abas.length, 10);
+  assert.equal(r1.abas.length, 14);
   assert.equal(await db.poll.count(), 2);
+  // aba opcional ausente na fixture (Pendencias) não é erro
+  assert.equal(r1.abas.find((a) => a.aba === "Pendencias")?.status, "ausente");
 
   assert.equal(await db.day.count(), 3);
   assert.equal(await db.agendaItem.count(), 3);
@@ -84,11 +101,14 @@ async function main() {
   const r02 = await db.day.findUniqueOrThrow({ where: { id: "r02" } });
   assert.equal(r02.notas, null, "[PREENCHER] deveria virar null");
 
-  const f01 = await db.financeItem.findUniqueOrThrow({ where: { id: "f01" } });
-  assert.equal(f01.valorTotal, 18400, "R$ 18.400,00 → 18400");
-  const f02 = await db.financeItem.findUniqueOrThrow({ where: { id: "f02" } });
-  assert.equal(f02.valorTotal, 3450.1, "3,450.10 → 3450.10");
-  assert.equal(f02.valorPago, 1725.05, "1.725,05 → 1725.05");
+  const pc01 = await db.package.findUniqueOrThrow({ where: { id: "pc01" } });
+  assert.equal(pc01.valorTotal, 18400, "R$ 18.400,00 → 18400");
+  const pc02 = await db.package.findUniqueOrThrow({ where: { id: "pc02" } });
+  assert.equal(pc02.valorTotal, 3450.1, "3,450.10 → 3450.10");
+  const pg02 = await db.payment.findUniqueOrThrow({ where: { id: "pg02" } });
+  assert.equal(pg02.valor, 1725.05, "1.725,05 → 1725.05");
+  assert.equal(await db.expense.count(), 1);
+  assert.equal(await db.budgetHint.count(), 2);
 
   const v02 = await db.flight.findUniqueOrThrow({ where: { id: "v02" } });
   assert.equal(v02.data, null, "XX em data → null");

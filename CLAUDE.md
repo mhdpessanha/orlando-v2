@@ -38,7 +38,10 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 | Turma | id, nome, nucleo, tipo, papel, iniciais, aniversario, tagline |
 | Marcos | id, data, hora, titulo, categoria, status, descricao |
 | Guia | id, secao, ordem, titulo, conteudo · opcional: detalhes |
-| Financeiro | id, nucleo, item, moeda, valor_total, valor_pago, valor_restante, notas |
+| Pacote | id, nucleo, descricao, moeda, valor_total, notas |
+| Pagamentos | id, nucleo, data, moeda, valor, descricao |
+| Gastos (só admin) | id, item, categoria, moeda, valor_previsto, valor_pago, prazo, status, notas |
+| Levar | id, nucleo (ou `todos`), categoria, moeda, valor, base, notas |
 | Magia | id, ordem, tema, texto |
 | Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em · opcional: explicacao |
 | Pendencias (aba opcional) | id, titulo, categoria, responsavel, prazo, status, notas |
@@ -46,6 +49,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia sem parque) · `periodo` ∈ manha, tarde, noite · `grupo` (voos) ∈ familia, gabi, vm · `nucleo` ∈ pessanha, gabi, vitor, mariana · `tipo` (turma) ∈ adulto, crianca · `papel` ∈ admin, membro, perfil · `status` (voos/marcos) ∈ emitido/pendente/feito etc. — validar como string curta, não travar em lista fechada.
 
 - **Colunas opcionais** (marcadas acima): se o cabeçalho não existe na aba, a coluna é lida como vazia e a aba NÃO falha. São o conteúdo do "card expandido" (folha de detalhe que abre ao tocar no card em Guia, Voos, Hospedagens e no título da pergunta em Decisões). Texto longo com quebras de linha é respeitado.
+- **Financeiro (refeito em 04/09/2026; a aba `Financeiro` antiga não existe mais):** `Pacote` = valor fechado que cada núcleo deve ao Murilo (pacote completo: voos + ingressos + hospedagem). `Pagamentos` = lançamentos recebidos; o site soma e calcula pago/falta (nunca há campo "valor_pago" acumulado). `Gastos` = o que ainda sai do bolso do Murilo (só admin; `status` feito/pago = concluído; gasto com saldo entra no radar de Pendências). `Levar` = "quanto levar" por categoria (`nucleo` = `todos` ou específico; `base` texto livre: "por dia por adulto"). As 4 abas são opcionais no sync. Visibilidade: núcleo vê só o próprio Pacote, os próprios Pagamentos e Levar (todos + o seu); admin vê tudo — filtrado no server.
 - **Pendencias (só admin):** aba opcional — se não existir na planilha, o sync marca `ausente` e segue sem erro. `status` vazio = aberta; feito/feita/ok/concluída = feita. Tela `/pendencias` (redirect pra home se não for admin; link no rodapé só pro admin) mostra a lista da aba + um "radar" automático: voos não emitidos, hospedagens sem confirmação, marcos com data passada sem "feito", itens do Guia sem conteúdo, financeiro com restante > 0.
 - **Voos: a coluna `reserva` é o localizador** e deve aparecer em destaque no site, com botão de copiar — é o dado que a família vai buscar na correria do aeroporto. `notas` é contexto secundário.
 - **Magia:** item do dia determinístico: `ordem = ((diasCorridosDesde(2026-09-04)) mod N) + 1`, virando à meia-noite de Brasília; datas antes do epoch mostram o #1. Mostrar "#<ordem> de <N>".
@@ -53,7 +57,7 @@ Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia 
 
 ## Modelo de dados (Prisma, direção)
 
-`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `FinanceItem`, `MagicFact`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `FinanceItem.nucleo` indexado; toda query financeira filtra por núcleo do usuário logado no server.
+`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `MagicFact`, `Poll`, `Pendencia`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `Package`/`Payment`/`BudgetHint` (índice em `nucleo`) + `Expense` (só admin); toda query financeira filtra por núcleo do usuário logado no server.
 
 ## Design — "noite de fogos"
 
@@ -81,7 +85,7 @@ Tokens (pro `tailwind.config`):
 6. **Turma** — cards por núcleo, badge de aniversário da Joana.
 7. **Guia** — seções da aba Guia.
 8b. **Pendências** — `/pendencias`, só admin (ver aba Pendencias acima).
-8. **Financeiro** — rota discreta (link no rodapé, não na nav principal): pago × restante do núcleo do usuário.
+8. **Financeiro** — rota discreta (link no rodapé, não na nav principal). Núcleo: card do próprio pacote (total, pago, falta), lista de pagamentos, "Quanto levar". Admin: consolidado a receber, card por núcleo (toque abre os pagamentos), seção Gastos (previsto × pago × falta), Levar completo.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
 10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.
 

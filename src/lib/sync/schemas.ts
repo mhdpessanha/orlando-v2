@@ -139,14 +139,45 @@ export const guiaSchema = z.object({
   detalhes: opt,
 });
 
-export const financeiroSchema = z.object({
+const NUCLEOS_OU_TODOS = [...NUCLEOS, "todos"] as const;
+
+export const pacoteSchema = z.object({
   id: req,
   nucleo: enumReq(NUCLEOS),
-  item: req,
+  descricao: opt,
   moeda: curtaOpt,
   valor_total: numOpt,
+  notas: opt,
+});
+
+export const pagamentosSchema = z.object({
+  id: req,
+  nucleo: enumReq(NUCLEOS),
+  data: dateOpt,
+  moeda: curtaOpt,
+  valor: numOpt,
+  descricao: opt,
+});
+
+export const gastosSchema = z.object({
+  id: req,
+  item: req,
+  categoria: opt,
+  moeda: curtaOpt,
+  valor_previsto: numOpt,
   valor_pago: numOpt,
-  valor_restante: numOpt,
+  prazo: dateOpt,
+  status: curtaOpt,
+  notas: opt,
+});
+
+export const levarSchema = z.object({
+  id: req,
+  nucleo: enumReq(NUCLEOS_OU_TODOS),
+  categoria: req,
+  moeda: curtaOpt,
+  valor: numOpt,
+  base: opt,
   notas: opt,
 });
 

@@ -6,8 +6,11 @@ import { rowsToObjects, TabError } from "./parse";
 import {
   agendaSchema,
   decisoesSchema,
-  financeiroSchema,
+  gastosSchema,
   guiaSchema,
+  levarSchema,
+  pacoteSchema,
+  pagamentosSchema,
   hospedagensSchema,
   magiaSchema,
   marcosSchema,
@@ -245,23 +248,89 @@ const TABS: TabDef[] = [
     },
   },
   {
-    aba: "Financeiro",
-    headers: ["id", "nucleo", "item", "moeda", "valor_total", "valor_pago", "valor_restante", "notas"],
+    aba: "Pacote",
+    abaOpcional: true,
+    headers: ["id", "nucleo", "descricao", "moeda", "valor_total", "notas"],
     processar: async (rows) => {
-      const data = validar(financeiroSchema, rows).map((r) => ({
+      const data = validar(pacoteSchema, rows).map((r) => ({
         id: r.id,
         nucleo: r.nucleo,
-        item: r.item,
+        descricao: r.descricao,
         moeda: r.moeda,
         valorTotal: r.valor_total,
-        valorPago: r.valor_pago,
-        valorRestante: r.valor_restante,
         notas: r.notas,
       }));
       await mirror(
         data,
-        (d) => db.financeItem.upsert({ where: { id: d.id }, update: d, create: d }),
-        (ids) => db.financeItem.deleteMany({ where: { id: { notIn: ids } } }),
+        (d) => db.package.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.package.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
+    aba: "Pagamentos",
+    abaOpcional: true,
+    headers: ["id", "nucleo", "data", "moeda", "valor", "descricao"],
+    processar: async (rows) => {
+      const data = validar(pagamentosSchema, rows).map((r) => ({
+        id: r.id,
+        nucleo: r.nucleo,
+        data: r.data,
+        moeda: r.moeda,
+        valor: r.valor,
+        descricao: r.descricao,
+      }));
+      await mirror(
+        data,
+        (d) => db.payment.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.payment.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
+    aba: "Gastos",
+    abaOpcional: true,
+    headers: ["id", "item", "categoria", "moeda", "valor_previsto", "valor_pago", "prazo", "status", "notas"],
+    processar: async (rows) => {
+      const data = validar(gastosSchema, rows).map((r) => ({
+        id: r.id,
+        item: r.item,
+        categoria: r.categoria,
+        moeda: r.moeda,
+        valorPrevisto: r.valor_previsto,
+        valorPago: r.valor_pago,
+        prazo: r.prazo,
+        status: r.status,
+        notas: r.notas,
+      }));
+      await mirror(
+        data,
+        (d) => db.expense.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.expense.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
+    aba: "Levar",
+    abaOpcional: true,
+    headers: ["id", "nucleo", "categoria", "moeda", "valor", "base", "notas"],
+    processar: async (rows) => {
+      const data = validar(levarSchema, rows).map((r) => ({
+        id: r.id,
+        nucleo: r.nucleo,
+        categoria: r.categoria,
+        moeda: r.moeda,
+        valor: r.valor,
+        base: r.base,
+        notas: r.notas,
+      }));
+      await mirror(
+        data,
+        (d) => db.budgetHint.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.budgetHint.deleteMany({ where: { id: { notIn: ids } } }),
       );
       return data.length;
     },
@@ -380,7 +449,7 @@ async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
     .catch(() => {});
 
   const result: SyncResult = {
-    ok: abas.every((a) => a.status === "ok"),
+    ok: abas.every((a) => a.status !== "erro"),
     trigger,
     startedAt,
     durationMs: Date.now() - t0,

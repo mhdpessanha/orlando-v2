@@ -187,34 +187,82 @@ export async function getDecisoesResumo(userId: string) {
   return { abertas: abertas.length, pendentes };
 }
 
-// Premissa 2: visibilidade financeira aplicada AQUI, no server.
-// A tela mostra só o agregado do núcleo (total/pago/restante), por moeda —
-// os itens individuais ficam na planilha do Murilo.
-export async function getFinanceiroResumo(user: { nucleo: string; papel: string }) {
-  const where = user.papel === "admin" ? {} : { nucleo: user.nucleo };
-  const itens = await db.financeItem.findMany({ where, orderBy: { id: "asc" } });
+// ── Financeiro ──
+// Premissa 2: visibilidade aplicada AQUI, no server. Núcleo vê só o próprio
+// pacote, os próprios pagamentos e o "levar" (todos + o seu). Admin vê tudo.
 
-  type Agregado = { total: number; pago: number; restante: number; preenchido: boolean };
-  const porNucleo = new Map<string, Map<string, Agregado>>();
-  for (const i of itens) {
-    const moedas = porNucleo.get(i.nucleo) ?? new Map<string, Agregado>();
-    const code = i.moeda ?? "BRL";
-    const t = moedas.get(code) ?? { total: 0, pago: 0, restante: 0, preenchido: false };
-    t.total += i.valorTotal ?? 0;
-    t.pago += i.valorPago ?? 0;
-    t.restante +=
-      i.valorRestante ??
-      (i.valorTotal != null && i.valorPago != null ? i.valorTotal - i.valorPago : 0);
-    // enquanto a planilha só tem os itens (sem números), a tela mostra "em preenchimento"
-    t.preenchido ||= i.valorTotal != null || i.valorPago != null || i.valorRestante != null;
-    moedas.set(code, t);
-    porNucleo.set(i.nucleo, moedas);
+export type Saldo = { moeda: string; total: number; pago: number; falta: number };
+
+function somarPorMoeda(
+  pacotes: { moeda: string | null; valorTotal: number | null }[],
+  pagamentos: { moeda: string | null; valor: number | null }[],
+): Saldo[] {
+  const m = new Map<string, Saldo>();
+  const get = (moeda: string | null) => {
+    const code = moeda ?? "BRL";
+    const s = m.get(code) ?? { moeda: code, total: 0, pago: 0, falta: 0 };
+    m.set(code, s);
+    return s;
+  };
+  for (const p of pacotes) get(p.moeda).total += p.valorTotal ?? 0;
+  for (const p of pagamentos) get(p.moeda).pago += p.valor ?? 0;
+  for (const s of m.values()) s.falta = Math.max(0, s.total - s.pago);
+  return [...m.values()].sort((a, b) => a.moeda.localeCompare(b.moeda));
+}
+
+export function gastoFalta(g: { valorPrevisto: number | null; valorPago: number | null; status: string | null }) {
+  if (g.status && /feit|pago|conclu|^ok$/i.test(g.status)) return 0;
+  if (g.valorPrevisto == null) return null; // ainda sem valor
+  return Math.max(0, g.valorPrevisto - (g.valorPago ?? 0));
+}
+
+export async function getFinanceiro(user: { nucleo: string; papel: string }) {
+  const admin = user.papel === "admin";
+  const whereNucleo = admin ? {} : { nucleo: user.nucleo };
+  const [pacotes, pagamentos, levar, gastos] = await Promise.all([
+    db.package.findMany({ where: whereNucleo, orderBy: { id: "asc" } }),
+    db.payment.findMany({ where: whereNucleo, orderBy: [{ data: "desc" }, { id: "desc" }] }),
+    db.budgetHint.findMany({
+      where: admin ? {} : { nucleo: { in: ["todos", user.nucleo] } },
+      orderBy: [{ nucleo: "asc" }, { id: "asc" }],
+    }),
+    admin ? db.expense.findMany({ orderBy: [{ prazo: "asc" }, { id: "asc" }] }) : Promise.resolve([]),
+  ]);
+
+  const nucleos = [...new Set(pacotes.map((p) => p.nucleo))].map((nucleo) => {
+    const pc = pacotes.filter((p) => p.nucleo === nucleo);
+    const pg = pagamentos.filter((p) => p.nucleo === nucleo);
+    return {
+      nucleo,
+      pacotes: pc,
+      pagamentos: pg,
+      saldos: somarPorMoeda(pc, pg),
+      preenchido: pc.some((p) => p.valorTotal != null),
+    };
+  });
+
+  // gastos sem prazo vão pro fim (Prisma ordena null primeiro no SQLite)
+  const gastosOrdenados = [...gastos].sort(
+    (a, b) => (a.prazo ?? "9999").localeCompare(b.prazo ?? "9999") || a.id.localeCompare(b.id),
+  );
+  const gastosSaldo = new Map<string, { moeda: string; previsto: number; pago: number; falta: number }>();
+  for (const g of gastos) {
+    const code = g.moeda ?? "BRL";
+    const s = gastosSaldo.get(code) ?? { moeda: code, previsto: 0, pago: 0, falta: 0 };
+    s.previsto += g.valorPrevisto ?? 0;
+    s.pago += g.valorPago ?? 0;
+    s.falta += gastoFalta(g) ?? 0;
+    gastosSaldo.set(code, s);
   }
 
-  return [...porNucleo.entries()].map(([nucleo, moedas]) => ({
-    nucleo,
-    moedas: [...moedas.entries()].map(([moeda, v]) => ({ moeda, ...v })),
-  }));
+  return {
+    admin,
+    nucleos,
+    consolidado: admin ? somarPorMoeda(pacotes, pagamentos) : null,
+    levar,
+    gastos: gastosOrdenados,
+    gastosSaldo: [...gastosSaldo.values()],
+  };
 }
 
 // ── Pendências (só admin; a página confere o papel antes de chamar) ──
@@ -225,7 +273,7 @@ export function pendenciaFeita(status: string | null): boolean {
 
 export type PendenciaAuto = {
   key: string;
-  origem: "Voos" | "Hospedagens" | "Marcos" | "Guia" | "Financeiro";
+  origem: "Voos" | "Hospedagens" | "Marcos" | "Guia" | "Gastos";
   titulo: string;
   detalhe: string | null;
   prazo: string | null;
@@ -235,13 +283,13 @@ export type PendenciaAuto = {
 // Lista à mão (aba Pendencias) + radar automático do que o site já enxerga.
 export async function getPendencias() {
   const hoje = hojeBrasilia();
-  const [manuais, voos, estadias, marcos, guia, financeiro] = await Promise.all([
+  const [manuais, voos, estadias, marcos, guia, gastos] = await Promise.all([
     db.pendencia.findMany(),
     db.flight.findMany({ orderBy: { id: "asc" } }),
     db.accommodation.findMany({ orderBy: [{ checkin: "asc" }, { id: "asc" }] }),
     db.milestone.findMany({ where: { data: { lt: hoje } }, orderBy: { data: "asc" } }),
     db.guideEntry.findMany({ orderBy: [{ secao: "asc" }, { ordem: "asc" }] }),
-    db.financeItem.findMany({ orderBy: [{ nucleo: "asc" }, { id: "asc" }] }),
+    db.expense.findMany({ orderBy: { id: "asc" } }),
   ]);
 
   const abertas = manuais
@@ -298,16 +346,15 @@ export async function getPendencias() {
       href: "/guia",
     });
   }
-  for (const f of financeiro) {
-    const restante =
-      f.valorRestante ?? (f.valorTotal != null && f.valorPago != null ? f.valorTotal - f.valorPago : null);
-    if (restante == null || restante <= 0) continue;
+  for (const g of gastos) {
+    const falta = gastoFalta(g);
+    if (falta === 0) continue;
     auto.push({
-      key: `fin-${f.id}`,
-      origem: "Financeiro",
-      titulo: `Pagar ${f.item}`,
-      detalhe: `${f.nucleo} · restam ${moeda(restante, f.moeda)}`,
-      prazo: null,
+      key: `gasto-${g.id}`,
+      origem: "Gastos",
+      titulo: `${falta === null ? "Orçar" : "Pagar"} ${g.item}`,
+      detalhe: falta === null ? "ainda sem valor previsto" : `restam ${moeda(falta, g.moeda)}`,
+      prazo: g.prazo,
       href: "/financeiro",
     });
   }

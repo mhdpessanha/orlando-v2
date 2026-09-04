@@ -12,7 +12,7 @@ const ORIGEM_COR: Record<PendenciaAuto["origem"], string> = {
   Hospedagens: "#f6c453",
   Marcos: "#8f7bff",
   Guia: "#5fbf7a",
-  Financeiro: "#ff8f66",
+  Gastos: "#ff8f66",
 };
 
 function ChipPrazo({ prazo }: { prazo: string | null }) {
@@ -101,7 +101,7 @@ export default async function PendenciasPage() {
           </span>
           <span className="text-[11.5px] text-ink-faint">
             o que o site enxerga nas outras abas: voo sem emissão, hospedagem sem confirmação, marco
-            vencido, guia vazio, saldo a pagar
+            vencido, guia vazio, gasto seu em aberto
           </span>
         </div>
         {auto.length === 0 && (

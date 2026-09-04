@@ -5,6 +5,7 @@
 
 import { db } from "../src/lib/db";
 import { runSync } from "../src/lib/sync";
+import { AbaNaoEncontrada } from "../src/lib/sync/sheets";
 
 const R = ["id", "data", "dia_semana", "titulo", "parque_code", "quem", "hospedagem_noite", "early_entry", "destaque", "notas"];
 
@@ -84,15 +85,29 @@ const FIXTURE: Record<string, unknown[][]> = {
     ["g04", "nos parques", "1", "Lightning Lane", "Multi Pass = 3 atrações agendadas; compramos em 01/01 às 9h de Brasília. Sem stress: o Murilo coordena."],
     ["g05", "nos parques", "2", "Calor e chuva", "Janeiro é ameno, mas capa de chuva de bolso e garrafa d'água sempre na mochila."],
   ],
-  Financeiro: [
-    ["id", "nucleo", "item", "moeda", "valor_total", "valor_pago", "valor_restante", "notas"],
-    ["f01", "pessanha", "Voos (4 pessoas)", "BRL", "18.400,00", "18.400,00", "0", "emitidos com milhas + dinheiro"],
-    ["f02", "pessanha", "Hotéis Disney", "USD", "6.850,00", "3.425,00", "3.425,00", "parcelado até novembro"],
-    ["f03", "pessanha", "Ingressos Disney", "USD", "3.180,00", "3.180,00", "0", ""],
-    ["f04", "gabi", "Ingressos Disney", "USD", "2.390,00", "1.195,00", "1.195,00", "metade paga"],
-    ["f05", "gabi", "Voos (3 pessoas)", "BRL", "13.800,00", "0", "13.800,00", "aguardando emissão"],
-    ["f06", "vitor", "Cota da casa de Kissimmee", "USD", "420,00", "0", "420,00", ""],
-    ["f07", "mariana", "Cota da casa de Kissimmee", "USD", "420,00", "0", "420,00", ""],
+  Pacote: [
+    ["id", "nucleo", "descricao", "moeda", "valor_total", "notas"],
+    ["pc01", "gabi", "Pacote completo: voos + ingressos + hospedagem", "BRL", "32.500,00", ""],
+    ["pc02", "vitor", "Pacote completo: voos + ingressos + hospedagem", "BRL", "14.200,00", ""],
+    ["pc03", "mariana", "Pacote completo: voos + ingressos + hospedagem", "BRL", "14.200,00", ""],
+  ],
+  Pagamentos: [
+    ["id", "nucleo", "data", "moeda", "valor", "descricao"],
+    ["pg01", "gabi", "2026-07-10", "BRL", "10.000,00", "1ª parcela"],
+    ["pg02", "gabi", "2026-08-10", "BRL", "10.000,00", "2ª parcela"],
+    ["pg03", "vitor", "2026-08-20", "BRL", "14.200,00", "à vista"],
+  ],
+  Gastos: [
+    ["id", "item", "categoria", "moeda", "valor_previsto", "valor_pago", "prazo", "status", "notas"],
+    ["g01", "Gift cards Disney", "ingressos", "USD", "4.000,00", "1.500,00", "2026-11-01", "", "comprar aos poucos"],
+    ["g02", "Hotel Vitor e Mariana (Drury Plaza)", "hospedagem", "USD", "1.180,00", "", "2026-10-01", "", ""],
+    ["g03", "Despacho de malas", "voos", "BRL", "900,00", "900,00", "", "pago", ""],
+  ],
+  Levar: [
+    ["id", "nucleo", "categoria", "moeda", "valor", "base", "notas"],
+    ["lv01", "todos", "Alimentação", "USD", "120,00", "por dia por adulto", "crianças metade"],
+    ["lv02", "todos", "Compras e extras", "USD", "600,00", "total da viagem", ""],
+    ["lv03", "gabi", "Cadeirinha do Lucas", "USD", "80,00", "aluguel no aeroporto", ""],
   ],
   Decisoes: [
     ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
@@ -113,7 +128,7 @@ const FIXTURE: Record<string, unknown[][]> = {
 async function main() {
   const result = await runSync("seed-dev", async (aba) => {
     const values = FIXTURE[aba];
-    if (!values) throw new Error(`fixture sem a aba ${aba}`);
+    if (!values) throw new AbaNaoEncontrada(`fixture sem a aba ${aba}`);
     return values;
   });
   if (!result.ok) {
