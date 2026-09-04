@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseNumeroBR } from "./parse";
+import { normEnum, parseNumeroBR } from "./parse";
 
 export const PARQUES = ["MK", "EP", "AK", "HS", "USF", "IOA", "EPIC", "SW", "PEPPA"] as const;
 export const PERIODOS = ["manha", "tarde", "noite"] as const;
@@ -34,11 +34,16 @@ const numOpt = opt
   .transform((v) => (v === null ? null : parseNumeroBR(v)))
   .refine((v) => v === null || Number.isFinite(v), "número inválido");
 
+// Enums minúsculos (periodo, grupo, nucleo…) aceitam acento/maiúscula: "Manhã" → "manha".
 const enumReq = <T extends readonly string[]>(vals: T) =>
-  req.refine((v): v is T[number] => vals.includes(v), `deve ser um de: ${vals.join(", ")}`);
+  req
+    .transform(normEnum)
+    .refine((v): v is T[number] => vals.includes(v), `deve ser um de: ${vals.join(", ")}`);
 
 const enumOpt = <T extends readonly string[]>(vals: T) =>
-  opt.refine((v): v is T[number] | null => v === null || vals.includes(v), `deve ser um de: ${vals.join(", ")}`);
+  opt
+    .transform((v) => (v === null ? null : normEnum(v)))
+    .refine((v): v is T[number] | null => v === null || vals.includes(v), `deve ser um de: ${vals.join(", ")}`);
 
 // Chaves = cabeçalhos exatos da linha 1 de cada aba (o contrato do CLAUDE.md).
 
@@ -47,7 +52,9 @@ export const roteiroSchema = z.object({
   data: dateReq,
   dia_semana: opt,
   titulo: req,
-  parque_code: enumOpt(PARQUES),
+  parque_code: opt
+    .transform((v) => (v === null ? null : normEnum(v).toUpperCase()))
+    .refine((v): v is (typeof PARQUES)[number] | null => v === null || PARQUES.includes(v as never), `deve ser um de: ${PARQUES.join(", ")}`),
   quem: opt,
   hospedagem_noite: opt,
   early_entry: opt,

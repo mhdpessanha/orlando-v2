@@ -13,7 +13,8 @@ export function normCell(v: unknown): string {
 // Linha 1 é o contrato: cabeçalho esperado ausente → a aba inteira falha.
 // Cabeçalhos opcionais (colunas novas, ex.: detalhes de voo) viram "" quando
 // ainda não existem na aba. Colunas extras desconhecidas são ignoradas.
-// Linhas 100% vazias são puladas.
+// Linhas 100% vazias, ou só com o id (linha reservada, ainda em preenchimento),
+// são puladas.
 export function rowsToObjects(
   values: unknown[][],
   headersEsperados: readonly string[],
@@ -37,7 +38,7 @@ export function rowsToObjects(
       const col = idx.get(h)!;
       const cell = col < 0 ? "" : normCell(row[col]);
       obj[h] = cell;
-      if (cell !== "") temAlgo = true;
+      if (cell !== "" && h !== "id") temAlgo = true;
     }
     if (temAlgo) out.push({ obj, linha: i + 1 });
   }
@@ -55,4 +56,13 @@ export function parseNumeroBR(s: string): number {
     t = t.replace(/,/g, "");
   }
   return Number(t);
+}
+
+// "Manhã" → "manha": enums da planilha aceitam acento e maiúscula.
+export function normEnum(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 }

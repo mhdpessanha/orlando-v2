@@ -25,7 +25,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 - Acesso: service account do Google (projeto GCP já existe). Env: `GOOGLE_SHEETS_CREDENTIALS_PATH` (JSON da service account, fora do git) e `CMS_SHEET_ID`. A planilha deve ser compartilhada com o `client_email` da service account como **leitor** — se der 403, é isso que falta.
 - **Sync de mão única** (planilha → SQLite): no boot, a cada 30 min (setInterval no server ou cron do container) e sob demanda via `POST /api/sync` (só admin, botão discreto no rodapé).
 - Pipeline por aba: ler valores → validar com zod → **upsert por `id`** → deletar do banco linhas cujo `id` sumiu da aba. Se uma aba falhar validação, **manter os dados anteriores daquela aba**, registrar em `SyncLog` (aba, erro, timestamp) e seguir com as outras. O site SEMPRE serve do SQLite — Google fora do ar não derruba nada.
-- **Convenções do parser:** datas `AAAA-MM-DD`, horas `HH:MM` (strings); células com `XX`, `XXXXXX` ou `[PREENCHER]` são tratadas como **vazias** (é a convenção do Murilo pra "falta preencher"); colunas extras desconhecidas são ignoradas sem erro; cabeçalhos são o contrato — se um cabeçalho esperado sumir, a aba falha validação.
+- **Convenções do parser:** datas `AAAA-MM-DD`, horas `HH:MM` (strings); células com `XX`, `XXXXXX` ou `[PREENCHER]` são tratadas como **vazias** (é a convenção do Murilo pra "falta preencher"); colunas extras desconhecidas são ignoradas sem erro; linha só com `id` (reservada, em preenchimento) é pulada; enums aceitam acento/maiúscula (`Manhã` → `manha`, `mk` → `MK`); cabeçalhos são o contrato — se um cabeçalho esperado sumir, a aba falha validação.
 
 ### Contrato das abas (cabeçalhos exatos, linha 1)
 
