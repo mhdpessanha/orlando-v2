@@ -163,6 +163,17 @@ model Poll {
   explicacao String? // opcional: explicação longa, abre ao tocar na pergunta
 }
 
+// Aba opcional Pendencias — só o admin vê (/pendencias)
+model Pendencia {
+  id          String  @id
+  titulo      String
+  categoria   String?
+  responsavel String?
+  prazo       String? // AAAA-MM-DD
+  status      String? // vazio = aberta; feito/feita/ok = concluída
+  notas       String?
+}
+
 // ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
 
 model Vote {

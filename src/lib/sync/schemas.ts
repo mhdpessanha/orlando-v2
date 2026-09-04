@@ -164,3 +164,15 @@ export const decisoesSchema = z.object({
   // coluna opcional (explicação longa, abre ao tocar na pergunta)
   explicacao: opt,
 });
+
+// Aba opcional (só o admin vê): lista de pendências mantida à mão pelo Murilo.
+// status vazio = aberta; "feito"/"feita"/"ok" = concluída.
+export const pendenciasSchema = z.object({
+  id: req,
+  titulo: req,
+  categoria: opt,
+  responsavel: opt,
+  prazo: dateOpt,
+  status: curtaOpt,
+  notas: opt,
+});

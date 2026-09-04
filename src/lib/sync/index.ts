@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { fetchTab, sheetsIndisponivel } from "./sheets";
+import { AbaNaoEncontrada, fetchTab, sheetsIndisponivel } from "./sheets";
 import { rowsToObjects, TabError } from "./parse";
 import {
   agendaSchema,
@@ -11,12 +11,18 @@ import {
   hospedagensSchema,
   magiaSchema,
   marcosSchema,
+  pendenciasSchema,
   roteiroSchema,
   turmaSchema,
   voosSchema,
 } from "./schemas";
 
-export type TabResult = { aba: string; status: "ok" | "erro"; linhas?: number; erro?: string };
+export type TabResult = {
+  aba: string;
+  status: "ok" | "erro" | "ausente";
+  linhas?: number;
+  erro?: string;
+};
 export type SyncResult = {
   ok: boolean;
   trigger: string;
@@ -65,6 +71,8 @@ type TabDef = {
   headers: readonly string[];
   // colunas que podem ainda não existir na aba (viram vazias até serem criadas)
   opcionais?: readonly string[];
+  // aba inteira pode ainda não existir na planilha (o banco fica como está, sem erro)
+  abaOpcional?: boolean;
   processar: (rows: RawRows) => Promise<number>;
 };
 
@@ -282,6 +290,28 @@ const TABS: TabDef[] = [
     },
   },
   {
+    aba: "Pendencias",
+    abaOpcional: true,
+    headers: ["id", "titulo", "categoria", "responsavel", "prazo", "status", "notas"],
+    processar: async (rows) => {
+      const data = validar(pendenciasSchema, rows).map((r) => ({
+        id: r.id,
+        titulo: r.titulo,
+        categoria: r.categoria,
+        responsavel: r.responsavel,
+        prazo: r.prazo,
+        status: r.status,
+        notas: r.notas,
+      }));
+      await mirror(
+        data,
+        (d) => db.pendencia.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.pendencia.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
     aba: "Magia",
     headers: ["id", "ordem", "tema", "texto"],
     processar: async (rows) => {
@@ -333,6 +363,10 @@ async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
       abas.push({ aba: tab.aba, status: "ok", linhas });
       await db.syncLog.create({ data: { aba: tab.aba, status: "ok" } });
     } catch (e) {
+      if (tab.abaOpcional && e instanceof AbaNaoEncontrada) {
+        abas.push({ aba: tab.aba, status: "ausente" });
+        continue;
+      }
       // Falhou (rede, validação, o que for): mantém os dados anteriores da aba e segue.
       const erro = e instanceof Error ? e.message : String(e);
       abas.push({ aba: tab.aba, status: "erro", erro });
@@ -354,7 +388,9 @@ async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
   };
   console.log(
     `[sync] ${trigger}: ${result.ok ? "ok" : "com falhas"} em ${result.durationMs}ms — ` +
-      abas.map((a) => `${a.aba}=${a.status === "ok" ? a.linhas : "ERRO"}`).join(" "),
+      abas
+        .map((a) => `${a.aba}=${a.status === "ok" ? a.linhas : a.status === "ausente" ? "ausente" : "ERRO"}`)
+        .join(" "),
   );
   return result;
 }

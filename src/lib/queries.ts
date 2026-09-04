@@ -1,6 +1,6 @@
 import type { Person } from "@prisma/client";
 import { db } from "./db";
-import { hojeBrasilia } from "./format";
+import { hojeBrasilia, moeda } from "./format";
 import { magiaOrdemDoDia } from "./magia";
 
 export const TRIP_INICIO = "2027-01-07";
@@ -215,4 +215,102 @@ export async function getFinanceiroResumo(user: { nucleo: string; papel: string 
     nucleo,
     moedas: [...moedas.entries()].map(([moeda, v]) => ({ moeda, ...v })),
   }));
+}
+
+// ── Pendências (só admin; a página confere o papel antes de chamar) ──
+
+export function pendenciaFeita(status: string | null): boolean {
+  return !!status && /feit|conclu|^ok$|resolvid/i.test(status);
+}
+
+export type PendenciaAuto = {
+  key: string;
+  origem: "Voos" | "Hospedagens" | "Marcos" | "Guia" | "Financeiro";
+  titulo: string;
+  detalhe: string | null;
+  prazo: string | null;
+  href: string;
+};
+
+// Lista à mão (aba Pendencias) + radar automático do que o site já enxerga.
+export async function getPendencias() {
+  const hoje = hojeBrasilia();
+  const [manuais, voos, estadias, marcos, guia, financeiro] = await Promise.all([
+    db.pendencia.findMany(),
+    db.flight.findMany({ orderBy: { id: "asc" } }),
+    db.accommodation.findMany({ orderBy: [{ checkin: "asc" }, { id: "asc" }] }),
+    db.milestone.findMany({ where: { data: { lt: hoje } }, orderBy: { data: "asc" } }),
+    db.guideEntry.findMany({ orderBy: [{ secao: "asc" }, { ordem: "asc" }] }),
+    db.financeItem.findMany({ orderBy: [{ nucleo: "asc" }, { id: "asc" }] }),
+  ]);
+
+  const abertas = manuais
+    .filter((p) => !pendenciaFeita(p.status))
+    .sort((a, b) => (a.prazo ?? "9999").localeCompare(b.prazo ?? "9999") || a.id.localeCompare(b.id));
+  const feitas = manuais.filter((p) => pendenciaFeita(p.status)).sort((a, b) => a.id.localeCompare(b.id));
+
+  const auto: PendenciaAuto[] = [];
+  for (const v of voos) {
+    if (v.status && /emitid|confirmad|feito/i.test(v.status)) continue;
+    auto.push({
+      key: `voo-${v.id}`,
+      origem: "Voos",
+      titulo: `Emitir voo · ${GRUPO_VOO_LABEL[v.grupo] ?? v.grupo}`,
+      detalhe: [v.trecho, v.status ?? "sem status", v.notas].filter(Boolean).join(" · ") || null,
+      prazo: v.data,
+      href: "/voos",
+    });
+  }
+  for (const e of estadias) {
+    const confirmada = e.status && /confirmad|pago|feito/i.test(e.status);
+    if (confirmada && e.confirmacao) continue;
+    auto.push({
+      key: `hosp-${e.id}`,
+      origem: "Hospedagens",
+      titulo: `Reservar ${e.nome}`,
+      detalhe:
+        [e.quem, confirmada ? "confirmada, sem nº de confirmação" : (e.status ?? "sem status")]
+          .filter(Boolean)
+          .join(" · ") || null,
+      prazo: e.checkin,
+      href: "/hospedagens",
+    });
+  }
+  for (const m of marcos) {
+    if (m.status && /feit|conclu|^ok$/i.test(m.status)) continue;
+    auto.push({
+      key: `marco-${m.id}`,
+      origem: "Marcos",
+      titulo: `Marco passou sem "feito": ${m.titulo}`,
+      detalhe: m.descricao,
+      prazo: m.data,
+      href: "/",
+    });
+  }
+  for (const g of guia) {
+    if (g.conteudo) continue;
+    auto.push({
+      key: `guia-${g.id}`,
+      origem: "Guia",
+      titulo: `Preencher guia: ${g.titulo}`,
+      detalhe: `seção ${g.secao}`,
+      prazo: null,
+      href: "/guia",
+    });
+  }
+  for (const f of financeiro) {
+    const restante =
+      f.valorRestante ?? (f.valorTotal != null && f.valorPago != null ? f.valorTotal - f.valorPago : null);
+    if (restante == null || restante <= 0) continue;
+    auto.push({
+      key: `fin-${f.id}`,
+      origem: "Financeiro",
+      titulo: `Pagar ${f.item}`,
+      detalhe: `${f.nucleo} · restam ${moeda(restante, f.moeda)}`,
+      prazo: null,
+      href: "/financeiro",
+    });
+  }
+
+  return { abertas, feitas, auto };
 }

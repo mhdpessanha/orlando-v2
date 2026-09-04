@@ -54,6 +54,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {user.papel === "admin" && (
           <>
             <span aria-hidden>·</span>
+            <Link href="/pendencias" className="underline underline-offset-2 hover:text-ink-muted">
+              pendências
+            </Link>
+            <span aria-hidden>·</span>
             <SyncButton />
           </>
         )}

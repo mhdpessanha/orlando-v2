@@ -19,7 +19,7 @@ export default function SyncButton() {
         const falhas = data.abas.filter((a) => a.status === "erro");
         setMsg(
           falhas.length === 0
-            ? `ok · ${data.abas.length} abas`
+            ? `ok · ${data.abas.filter((a) => a.status === "ok").length} abas`
             : `falhou: ${falhas.map((f) => f.aba).join(", ")}`,
         );
       }

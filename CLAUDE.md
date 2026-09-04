@@ -41,10 +41,12 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 | Financeiro | id, nucleo, item, moeda, valor_total, valor_pago, valor_restante, notas |
 | Magia | id, ordem, tema, texto |
 | Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em · opcional: explicacao |
+| Pendencias (aba opcional) | id, titulo, categoria, responsavel, prazo, status, notas |
 
 Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia sem parque) · `periodo` ∈ manha, tarde, noite · `grupo` (voos) ∈ familia, gabi, vm · `nucleo` ∈ pessanha, gabi, vitor, mariana · `tipo` (turma) ∈ adulto, crianca · `papel` ∈ admin, membro, perfil · `status` (voos/marcos) ∈ emitido/pendente/feito etc. — validar como string curta, não travar em lista fechada.
 
 - **Colunas opcionais** (marcadas acima): se o cabeçalho não existe na aba, a coluna é lida como vazia e a aba NÃO falha. São o conteúdo do "card expandido" (folha de detalhe que abre ao tocar no card em Guia, Voos, Hospedagens e no título da pergunta em Decisões). Texto longo com quebras de linha é respeitado.
+- **Pendencias (só admin):** aba opcional — se não existir na planilha, o sync marca `ausente` e segue sem erro. `status` vazio = aberta; feito/feita/ok/concluída = feita. Tela `/pendencias` (redirect pra home se não for admin; link no rodapé só pro admin) mostra a lista da aba + um "radar" automático: voos não emitidos, hospedagens sem confirmação, marcos com data passada sem "feito", itens do Guia sem conteúdo, financeiro com restante > 0.
 - **Voos: a coluna `reserva` é o localizador** e deve aparecer em destaque no site, com botão de copiar — é o dado que a família vai buscar na correria do aeroporto. `notas` é contexto secundário.
 - **Magia:** item do dia determinístico: `ordem = ((diasCorridosDesde(2026-09-04)) mod N) + 1`, virando à meia-noite de Brasília; datas antes do epoch mostram o #1. Mostrar "#<ordem> de <N>".
 - **Decisoes (votações):** as perguntas são conteúdo (vêm da planilha); os votos são interação (só SQLite, tabela `Vote`, 1 por usuário/pergunta, pode trocar enquanto aberta). `opcoes` separadas por `\|` (mínimo 2) · `status` vazio = aberta, `fechada` = encerrada · `encerra_em` opcional (aceita votos até o fim daquele dia, Brasília). Tela `/decisoes` + card na home + ícone na nav (badge com nº de decisões em aberto; dourado enquanto falta o voto de quem está logado).
@@ -78,6 +80,7 @@ Tokens (pro `tailwind.config`):
 5. **Hospedagens** — linha do tempo das 4 estadias.
 6. **Turma** — cards por núcleo, badge de aniversário da Joana.
 7. **Guia** — seções da aba Guia.
+8b. **Pendências** — `/pendencias`, só admin (ver aba Pendencias acima).
 8. **Financeiro** — rota discreta (link no rodapé, não na nav principal): pago × restante do núcleo do usuário.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
 10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.

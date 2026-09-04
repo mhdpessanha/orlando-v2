@@ -1,6 +1,9 @@
 import { readFileSync } from "fs";
 import { JWT } from "google-auth-library";
 
+// Aba (ou planilha) não encontrada — o sync trata abas opcionais como vazias.
+export class AbaNaoEncontrada extends Error {}
+
 let client: JWT | null = null;
 let clientEmail = "";
 
@@ -47,7 +50,7 @@ export async function fetchTab(aba: string): Promise<unknown[][]> {
       );
     }
     if (status === 400 || status === 404) {
-      throw new Error(`aba/planilha não encontrada (HTTP ${status})`);
+      throw new AbaNaoEncontrada(`aba/planilha não encontrada (HTTP ${status})`);
     }
     throw e;
   }
