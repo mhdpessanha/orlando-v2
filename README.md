@@ -47,9 +47,28 @@ Pré-requisitos: Docker (Docker Desktop ou OrbStack) e o repositório clonado.
 - Atualização: `git pull && docker compose up -d --build`.
 - Logs: `docker compose logs -f app` (ou `cloudflared`).
 
+## Sync da planilha-CMS
+
+O conteúdo vem da planilha "Site_Orlando_2027__CMS" (Google Sheets) por sync de mão
+única → SQLite. O site sempre serve do banco; Google fora do ar não derruba nada.
+
+**Setup (uma vez, local e no Mini):** salvar o JSON da service account em
+`./credentials/service-account.json` (a pasta é gitignored; no Docker ela é montada
+read-only). A planilha precisa estar compartilhada como **leitor** com o
+`client_email` da service account — se o sync reclamar de 403, é isso.
+
+**Quando roda:** no boot do server, a cada 30 min, e sob demanda pelo botão "sync"
+no rodapé (só aparece pro admin) ou `POST /api/sync`. Cada aba é validada (zod,
+cabeçalho da linha 1 como contrato); aba inválida mantém os dados anteriores e fica
+registrada na tabela `SyncLog` com o erro e a linha problemática.
+
+**Teste do pipeline sem Google:** `npx tsx scripts/test-sync.ts` (fetcher fake,
+roda contra o banco local).
+
 ## Estrutura
 
 - `src/app/login` — tela de login (auth própria: bcrypt + cookie HTTP-only, sessão 30 dias).
 - `src/app/(app)` — tudo que exige login (middleware redireciona pra `/login` sem cookie).
-- `prisma/schema.prisma` — User/Session/SyncLog; espelhos da planilha entram no M2.
+- `prisma/schema.prisma` — User/Session/SyncLog + espelhos das 9 abas + tabelas de interação da fase 2.
+- `src/lib/sync` — pipeline do sync (fetch por aba, validação zod, espelho upsert/delete, SyncLog).
 - `scripts/create-user.mjs` — define senha dos 6 logins conhecidos.

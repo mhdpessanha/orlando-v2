@@ -8,6 +8,7 @@ import {
   TrophyIcon,
   UsersIcon,
 } from "@/components/icons";
+import SyncButton from "@/components/SyncButton";
 import { logoutAction } from "./actions";
 
 const AVATAR_GRADIENTS: Record<string, string> = {
@@ -86,6 +87,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             sair
           </button>
         </form>
+        {user.papel === "admin" && (
+          <>
+            <span aria-hidden>·</span>
+            <SyncButton />
+          </>
+        )}
       </footer>
     </div>
   );

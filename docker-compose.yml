@@ -4,8 +4,11 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=file:/app/data/orlando.db
+      - CMS_SHEET_ID=1robcUP4JwMFHiVldsJDvS13mTqIWDyD1XEN7GGilKRU
+      - GOOGLE_SHEETS_CREDENTIALS_PATH=/app/credentials/service-account.json
     volumes:
       - ./data:/app/data
+      - ./credentials:/app/credentials:ro
     ports:
       # acesso direto na rede local (opcional; o tunnel usa a rede interna do compose)
       - "3000:3000"
