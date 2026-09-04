@@ -28,7 +28,7 @@ export default function Countdown() {
       <span className="text-[11px] font-extrabold tracking-[5px] text-lavanda">FALTAM</span>
       <span
         suppressHydrationWarning
-        className="font-display text-[108px] font-bold leading-none text-gold-light [text-shadow:0_0_38px_rgba(246,196,83,0.5)]"
+        className="animate-countdown-glow font-display text-[108px] font-bold leading-none text-gold-light [text-shadow:0_0_38px_rgba(246,196,83,0.5)]"
       >
         {days}
       </span>

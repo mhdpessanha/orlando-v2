@@ -17,6 +17,15 @@ const nunito = Nunito_Sans({
 export const metadata: Metadata = {
   title: "Orlando 2027",
   description: "A viagem da família a Orlando — 07 a 24 de janeiro de 2027",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "Orlando 2027",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {

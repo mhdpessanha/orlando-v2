@@ -9,7 +9,10 @@ export const TIPOS_PESSOA = ["adulto", "crianca"] as const;
 export const PAPEIS = ["admin", "membro", "perfil"] as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{1,2}:\d{2}$/;
+// aceita o marcador de chegada no dia seguinte: "05:51 (+1)"
+const TIME_RE = /^\d{1,2}:\d{2}(\s*\(\+1\))?$/;
+// aniversário pode vir sem ano: "11/01" (convenção da aba Turma)
+const ANIV_RE = /^(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2})$/;
 
 const req = z.string().min(1, "obrigatório");
 const opt = z.string().transform((s) => (s === "" ? null : s));
@@ -17,6 +20,10 @@ const opt = z.string().transform((s) => (s === "" ? null : s));
 const dateReq = req.regex(DATE_RE, "data deve ser AAAA-MM-DD");
 const dateOpt = opt.refine((v) => v === null || DATE_RE.test(v), "data deve ser AAAA-MM-DD");
 const timeOpt = opt.refine((v) => v === null || TIME_RE.test(v), "hora deve ser HH:MM");
+const anivOpt = opt.refine(
+  (v) => v === null || ANIV_RE.test(v),
+  "aniversário deve ser AAAA-MM-DD ou DD/MM",
+);
 
 // status etc.: string curta, sem lista fechada — não travar o sync por vocabulário novo
 const curtaOpt = opt.refine((v) => v === null || v.length <= 60, "texto longo demais pra este campo");
@@ -93,7 +100,7 @@ export const turmaSchema = z.object({
   tipo: enumReq(TIPOS_PESSOA),
   papel: enumReq(PAPEIS),
   iniciais: opt,
-  aniversario: dateOpt,
+  aniversario: anivOpt,
   tagline: opt,
 });
 

@@ -22,7 +22,7 @@ const FIXTURE_OK: Fixture = {
   ],
   Voos: [
     ["id", "grupo", "status", "trecho", "data", "voo", "origem", "destino", "saida", "chegada", "reserva", "notas"],
-    ["v01", "familia", "emitido", "GIG-MCO", "2027-01-07", "LA8180", "GIG", "MCO", "21:05", "5:40", "ABC123", ""],
+    ["v01", "familia", "emitido", "GIG-MCO", "2027-01-07", "LA8180", "GIG", "MCO", "21:05", "05:51 (+1)", "ABC123", ""],
     ["v02", "gabi", "pendente", "", "XX", "", "", "", "", "", "XX", ""],
   ],
   Hospedagens: [
@@ -32,7 +32,7 @@ const FIXTURE_OK: Fixture = {
   Turma: [
     ["id", "nome", "nucleo", "tipo", "papel", "iniciais", "aniversario", "tagline"],
     ["p01", "Murilo", "pessanha", "adulto", "admin", "MP", "1988-05-02", "o planejador"],
-    ["p02", "Olívia", "pessanha", "crianca", "perfil", "OP", "2019-03-15", "primeira viagem"],
+    ["p02", "Olívia", "pessanha", "crianca", "perfil", "OP", "15/03", "primeira viagem"],
   ],
   Marcos: [
     ["id", "data", "hora", "titulo", "categoria", "status", "descricao"],
@@ -86,6 +86,10 @@ async function main() {
 
   const v02 = await db.flight.findUniqueOrThrow({ where: { id: "v02" } });
   assert.equal(v02.data, null, "XX em data → null");
+  const v01 = await db.flight.findUniqueOrThrow({ where: { id: "v01" } });
+  assert.equal(v01.chegada, "05:51 (+1)", "chegada com marcador (+1) aceita");
+  const p02 = await db.person.findUniqueOrThrow({ where: { id: "p02" } });
+  assert.equal(p02.aniversario, "15/03", "aniversário DD/MM aceito");
 
   // ── 2º sync: Roteiro quebrado (cabeçalho sumiu), Voos com linha inválida,
   //    Agenda com linha removida ──

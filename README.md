@@ -9,6 +9,7 @@ Site privado da família pra viagem a Orlando (07–24/01/2027), servido do Mac 
 npm install                # roda prisma generate no postinstall
 npm run db:migrate         # cria/migra ./data/orlando.db
 npm run create-user -- murilo   # define a senha (pede no terminal)
+npx tsx scripts/seed-dev.ts     # (opcional) dados de exemplo pra dev sem o sync real
 npm run dev                # http://localhost:3000
 ```
 

@@ -88,6 +88,81 @@ export function BookIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function ChevronLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14.5 5.5L8 12l6.5 6.5" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9.5 5.5L16 12l-6.5 6.5" />
+    </svg>
+  );
+}
+
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="5.5" width="16" height="15" rx="2.5" />
+      <path d="M4 10.5h16" />
+      <path d="M8.5 3v4" />
+      <path d="M15.5 3v4" />
+    </svg>
+  );
+}
+
+export function ClockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 2" />
+    </svg>
+  );
+}
+
+export function CakeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 20.5h14v-6.5a2 2 0 00-2-2H7a2 2 0 00-2 2z" />
+      <path d="M5 16c1.5 1.4 3 1.4 4.7 0s3-1.4 4.6 0 3 1.4 4.7 0" />
+      <path d="M12 9v3" />
+      <path d="M12 5.5c0.8 0.8 0.8 1.7 0 2.5-0.8-0.8-0.8-1.7 0-2.5z" />
+    </svg>
+  );
+}
+
+export function BedIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3 18.5V7" />
+      <path d="M3 14.5h18v4" />
+      <path d="M3 11.5h7v3" />
+      <path d="M11 11.5h7a3 3 0 013 3" />
+    </svg>
+  );
+}
+
+export function CopyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="9" y="9" width="11" height="11" rx="2" />
+      <path d="M5 15V6a2 2 0 012-2h9" />
+    </svg>
+  );
+}
+
+export function CheckIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
 export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
