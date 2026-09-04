@@ -8,14 +8,18 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  passwordHash String
-  name         String
-  nucleo       String
-  papel        String    @default("membro")
-  createdAt    DateTime  @default(now())
-  sessions     Session[]
+  id             String          @id @default(cuid())
+  username       String          @unique
+  passwordHash   String
+  name           String
+  nucleo         String
+  papel          String          @default("membro")
+  createdAt      DateTime        @default(now())
+  sessions       Session[]
+  votes          Vote[]
+  predictions    Prediction[]
+  triviaAnswers  TriviaAnswer[]
+  checklistTicks ChecklistTick[]
 }
 
 model Session {
@@ -34,4 +38,174 @@ model SyncLog {
   status    String
   erro      String?
   createdAt DateTime @default(now())
+}
+
+// ── Espelhos da planilha-CMS (sync de mão única; nunca editados pelo site) ──
+
+model Day {
+  id              String  @id
+  data            String // AAAA-MM-DD
+  diaSemana       String?
+  titulo          String
+  parqueCode      String? // MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA; null = sem parque
+  quem            String?
+  hospedagemNoite String?
+  earlyEntry      String?
+  destaque        String?
+  notas           String?
+}
+
+model AgendaItem {
+  id        String  @id
+  roteiroId String // aponta pro Day.id da aba Roteiro (sem FK: as abas sincronizam de forma independente)
+  periodo   String // manha, tarde, noite
+  ordem     Int
+  titulo    String
+  local     String?
+  detalhe   String?
+  chip      String?
+
+  @@index([roteiroId])
+}
+
+model Flight {
+  id      String  @id
+  grupo   String // familia, gabi, vm
+  status  String?
+  trecho  String?
+  data    String?
+  voo     String?
+  origem  String?
+  destino String?
+  saida   String?
+  chegada String?
+  reserva String? // localizador — destaque no site, com botão de copiar
+  notas   String?
+}
+
+model Accommodation {
+  id          String  @id
+  nome        String
+  tipo        String?
+  checkin     String?
+  checkout    String?
+  quem        String?
+  status      String?
+  confirmacao String?
+  notas       String?
+}
+
+model Person {
+  id          String  @id
+  nome        String
+  nucleo      String // pessanha, gabi, vitor, mariana
+  tipo        String // adulto, crianca
+  papel       String // admin, membro, perfil
+  iniciais    String?
+  aniversario String?
+  tagline     String?
+}
+
+model Milestone {
+  id        String  @id
+  data      String? // sem data = vai pro fim da lista
+  hora      String?
+  titulo    String
+  categoria String?
+  status    String?
+  descricao String?
+}
+
+model GuideEntry {
+  id       String  @id
+  secao    String
+  ordem    Int
+  titulo   String
+  conteudo String?
+}
+
+model FinanceItem {
+  id            String  @id
+  nucleo        String // toda query filtra por núcleo do usuário no server
+  item          String
+  moeda         String?
+  valorTotal    Float?
+  valorPago     Float?
+  valorRestante Float?
+  notas         String?
+
+  @@index([nucleo])
+}
+
+model MagicFact {
+  id    String  @id
+  ordem Int
+  tema  String?
+  texto String
+}
+
+model Poll {
+  id        String  @id
+  ordem     Int
+  pergunta  String
+  detalhe   String?
+  opcoes    String // opções separadas por "|"
+  status    String? // vazio/aberta = aceita votos; "fechada" = encerrada
+  encerraEm String? // vota até o fim deste dia (Brasília)
+}
+
+// ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
+
+model Vote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pollId    String
+  choice    String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, pollId])
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  valor     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+model TriviaRound {
+  id        String         @id
+  ordem     Int
+  pergunta  String
+  opcoes    String // JSON string
+  correta   String
+  createdAt DateTime       @default(now())
+  answers   TriviaAnswer[]
+}
+
+model TriviaAnswer {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roundId   String
+  round     TriviaRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  resposta  String
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, roundId])
+}
+
+model ChecklistTick {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemKey   String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, itemKey])
 }

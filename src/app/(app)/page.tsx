@@ -1,5 +1,19 @@
+import Link from "next/link";
 import Countdown from "@/components/Countdown";
-import { HouseIcon, PlaneIcon, SparkleIcon, TicketIcon, UsersIcon } from "@/components/icons";
+import {
+  BallotIcon,
+  CalendarIcon,
+  ChevronRightIcon,
+  HouseIcon,
+  PlaneIcon,
+  SparkleIcon,
+  TicketIcon,
+  UsersIcon,
+} from "@/components/icons";
+import { getSession } from "@/lib/auth";
+import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
+import { PARQUE_INFO } from "@/lib/parques";
+import { getDecisoesResumo, getHomeData } from "@/lib/queries";
 
 function StarField() {
   return (
@@ -34,16 +48,32 @@ function StarField() {
   );
 }
 
-function StatChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+function StatChip({ icon, label, href }: { icon: React.ReactNode; label: string; href: string }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-stroke bg-surface px-[13px] py-2 text-[12px] font-bold text-ink-soft">
+    <Link
+      href={href}
+      className="flex items-center gap-1.5 rounded-full border border-stroke bg-surface px-[13px] py-2 text-[12px] font-bold text-ink-soft"
+    >
       {icon}
       <span>{label}</span>
-    </div>
+    </Link>
   );
 }
 
-export default function HomePage() {
+function marcoEstilo(categoria: string | null) {
+  if (categoria && /adr|reserva|restaurante/i.test(categoria)) {
+    return { Icon: CalendarIcon, cor: "#57c7d8", bg: "rgba(87,199,216,0.14)" };
+  }
+  return { Icon: SparkleIcon, cor: "#8f7bff", bg: "rgba(143,123,255,0.14)" };
+}
+
+export default async function HomePage() {
+  const [{ chips, magia, marcos, proximosDias, totalDias }, session] = await Promise.all([
+    getHomeData(),
+    getSession(),
+  ]);
+  const decisoes = session ? await getDecisoesResumo(session.userId) : null;
+
   return (
     <div className="flex flex-col gap-[26px] pt-[26px]">
       <section className="relative pb-1.5 pt-[18px] text-center">
@@ -51,43 +81,176 @@ export default function HomePage() {
         <StarField />
         <div className="relative flex flex-col items-center gap-1.5">
           <Countdown />
-          <div className="mt-2.5 flex items-center gap-2 rounded-full border border-gold/40 bg-gold/[0.08] px-4 py-[9px] text-[12px] font-bold text-gold-light">
+          <Link
+            href="/voos"
+            className="mt-2.5 flex items-center gap-2 rounded-full border border-gold/40 bg-gold/[0.08] px-4 py-[9px] text-[12px] font-bold text-gold-light"
+          >
             <PlaneIcon width={15} height={15} />
             <span>GIG → MCO · 7 de janeiro · 21h05</span>
-          </div>
+          </Link>
         </div>
       </section>
 
       <section className="flex justify-center gap-2">
         <StatChip
+          href="/turma"
           icon={<UsersIcon width={14} height={14} className="text-lavanda" />}
-          label="9 viajantes"
+          label={`${chips.viajantes} viajantes`}
         />
         <StatChip
+          href="/roteiro"
           icon={<TicketIcon width={14} height={14} className="text-lavanda" />}
-          label="12 dias de parque"
+          label={`${chips.diasParque} dias de parque`}
         />
         <StatChip
+          href="/hospedagens"
           icon={<HouseIcon width={14} height={14} className="text-lavanda" />}
-          label="3 casas"
+          label={`${chips.casas} casas`}
         />
       </section>
 
-      <section className="flex flex-col gap-2 rounded-card border border-[rgba(143,123,255,0.45)] bg-[linear-gradient(135deg,rgba(143,123,255,0.18),rgba(87,199,216,0.1))] p-4">
-        <div className="flex items-center gap-[7px]">
-          <SparkleIcon width={15} height={15} className="text-lavanda" />
-          <span className="text-[10px] font-extrabold tracking-[3px] text-lavanda">
-            EM CONSTRUÇÃO
+      {decisoes && (
+        <Link
+          href="/decisoes"
+          className="flex items-center gap-3.5 rounded-card border border-gold/40 bg-[linear-gradient(135deg,rgba(246,196,83,0.16),rgba(246,196,83,0.04))] px-4 py-[15px]"
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-gold/[0.14]">
+            <BallotIcon width={20} height={20} className="text-gold-light" />
+          </div>
+          <div className="flex grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">
+              {decisoes.pendentes > 0
+                ? `${decisoes.pendentes} ${decisoes.pendentes === 1 ? "decisão esperando" : "decisões esperando"} seu voto`
+                : "Decisões da viagem"}
+            </span>
+            <span className="text-[12px] text-ink-muted">
+              {decisoes.pendentes > 0
+                ? "vota aí que o plano anda"
+                : decisoes.abertas > 0
+                  ? "você já votou em tudo — ver o parcial"
+                  : "ver como ficou cada escolha"}
+            </span>
+          </div>
+          <ChevronRightIcon width={15} height={15} className="shrink-0 text-gold-light" />
+        </Link>
+      )}
+
+      {magia && (
+        <section className="flex flex-col gap-2 rounded-card border border-[rgba(143,123,255,0.45)] bg-[linear-gradient(135deg,rgba(143,123,255,0.18),rgba(87,199,216,0.1))] p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-[7px]">
+              <SparkleIcon width={15} height={15} className="text-lavanda" />
+              <span className="text-[10px] font-extrabold tracking-[3px] text-lavanda">
+                MAGIA DO DIA
+              </span>
+            </div>
+            <span className="text-[10px] font-extrabold text-ink-faint">
+              #{magia.ordem} de {magia.total}
+            </span>
+          </div>
+          <span className="text-[14px] font-bold leading-[1.45]">{magia.texto}</span>
+          <span className="text-[11.5px] text-ink-muted">
+            uma curiosidade nova por dia, até a gente ver de perto
           </span>
-        </div>
-        <span className="text-[14px] font-bold leading-[1.45]">
-          O site está nascendo: roteiro dia a dia, voos, hospedagens, a turma completa e o guia da
-          viagem chegam aqui em breve.
-        </span>
-        <span className="text-[11.5px] text-ink-muted">
-          enquanto isso, o relógio acima já está valendo
-        </span>
-      </section>
+        </section>
+      )}
+
+      {marcos.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+            Próximos marcos
+          </span>
+          {marcos.map((m, i) => {
+            const { Icon, cor, bg } = marcoEstilo(m.categoria);
+            const destaque = i === 0 && m.data;
+            return (
+              <div
+                key={m.id}
+                className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]"
+              >
+                <div
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px]"
+                  style={{ background: bg }}
+                >
+                  <Icon width={20} height={20} style={{ color: cor }} />
+                </div>
+                <div className="flex grow flex-col gap-0.5">
+                  <span className="text-[14px] font-extrabold">{m.titulo}</span>
+                  <span className="text-[12px] text-ink-muted">
+                    {m.data ? diaMes(m.data) : "data a definir"}
+                    {m.hora ? ` · ${m.hora.replace(":", "h")}` : ""}
+                    {m.descricao ? ` · ${m.descricao}` : ""}
+                  </span>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full border px-2.5 py-[5px] text-[11px] font-extrabold ${
+                    destaque
+                      ? "border-gold/40 bg-gold/[0.14] text-gold-light"
+                      : "border-[rgba(255,255,255,0.15)] bg-white/[0.07] text-[#b7b5d6]"
+                  }`}
+                >
+                  {m.data ? chipPrazo(m.data) : "sem data"}
+                </span>
+              </div>
+            );
+          })}
+        </section>
+      )}
+
+      {proximosDias.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+            Como tudo começa
+          </span>
+          {proximosDias.map((d) => {
+            const parque = d.parqueCode ? PARQUE_INFO[d.parqueCode] : null;
+            return (
+              <Link key={d.id} href={`/roteiro/${d.id}`} className="flex items-center gap-[13px]">
+                <div className="flex h-[50px] w-[46px] shrink-0 flex-col items-center justify-center rounded-[13px] border border-stroke bg-surface">
+                  <span className="font-display text-[17px] font-semibold leading-none">
+                    {diaNumero(d.data)}
+                  </span>
+                  <span className="text-[9.5px] font-bold text-ink-faint">
+                    {diaSemanaCurto(d.data)}
+                  </span>
+                </div>
+                <div className="flex grow flex-col gap-[1px]">
+                  <span className="text-[14px] font-extrabold">{d.titulo}</span>
+                  <span className="text-[12px] text-ink-muted">
+                    {d.destaque ?? d.hospedagemNoite ?? parque?.nome ?? ""}
+                  </span>
+                </div>
+                <span
+                  className="h-[9px] w-[9px] shrink-0 rounded-full"
+                  style={{ background: parque?.cor ?? "#f6c453" }}
+                />
+              </Link>
+            );
+          })}
+          <Link
+            href="/roteiro"
+            className="flex items-center justify-center gap-1.5 pt-3 text-[13px] font-extrabold text-gold-light"
+          >
+            <span>Ver os {totalDias} dias</span>
+            <ChevronRightIcon width={15} height={15} strokeWidth={2} />
+          </Link>
+        </section>
+      )}
+
+      {!magia && marcos.length === 0 && proximosDias.length === 0 && (
+        <section className="flex flex-col gap-2 rounded-card border border-[rgba(143,123,255,0.45)] bg-[linear-gradient(135deg,rgba(143,123,255,0.18),rgba(87,199,216,0.1))] p-4">
+          <div className="flex items-center gap-[7px]">
+            <SparkleIcon width={15} height={15} className="text-lavanda" />
+            <span className="text-[10px] font-extrabold tracking-[3px] text-lavanda">
+              EM CONSTRUÇÃO
+            </span>
+          </div>
+          <span className="text-[14px] font-bold leading-[1.45]">
+            O conteúdo da viagem aparece aqui assim que a primeira sincronização com a planilha
+            rodar.
+          </span>
+        </section>
+      )}
     </div>
   );
 }

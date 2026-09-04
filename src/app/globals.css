@@ -27,3 +27,37 @@ body {
 .animate-twinkle-slow {
   animation: twinkle 5.2s ease-in-out infinite;
 }
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.35s ease-out both;
+}
+
+@keyframes countdown-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 38px rgba(246, 196, 83, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 52px rgba(246, 196, 83, 0.72);
+  }
+}
+
+.animate-countdown-glow {
+  animation: countdown-glow 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-twinkle,
+  .animate-twinkle-slow,
+  .animate-rise,
+  .animate-countdown-glow {
+    animation: none;
+  }
+}
