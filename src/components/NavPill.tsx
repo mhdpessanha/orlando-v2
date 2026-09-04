@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BallotIcon, BookIcon, HouseIcon, MapIcon, UsersIcon } from "./icons";
+import { BallotIcon, BookIcon, HouseIcon, MapIcon, WalletIcon } from "./icons";
 
 const ITEMS = [
   { label: "Início", href: "/", icon: HouseIcon },
   { label: "Roteiro", href: "/roteiro", icon: MapIcon },
-  { label: "Turma", href: "/turma", icon: UsersIcon },
+  { label: "Financeiro", href: "/financeiro", icon: WalletIcon },
   { label: "Decisões", href: "/decisoes", icon: BallotIcon },
   { label: "Guia", href: "/guia", icon: BookIcon },
 ] as const;

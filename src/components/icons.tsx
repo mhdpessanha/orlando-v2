@@ -197,3 +197,13 @@ export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function WalletIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M3.5 7.5A2.5 2.5 0 016 5h11.5v3" />
+      <path d="M3.5 7.5v10A2.5 2.5 0 006 20h13.5a1 1 0 001-1V9a1 1 0 00-1-1H6a2.5 2.5 0 01-2.5-.5z" />
+      <circle cx="16.5" cy="14" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}

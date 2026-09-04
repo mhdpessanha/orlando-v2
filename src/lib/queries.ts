@@ -11,6 +11,11 @@ const CHIPS_PADRAO = { viajantes: 9, diasParque: 12, casas: 3 };
 
 const PERIODO_RANK: Record<string, number> = { manha: 0, tarde: 1, noite: 2 };
 
+// Marco concluído: some da home e do radar de pendências
+export function marcoFeito(status: string | null): boolean {
+  return !!status && /feit|conclu|^ok$|resolvid/i.test(status);
+}
+
 export async function getHomeData() {
   const hoje = hojeBrasilia();
   const [pessoas, diasParque, estadias, totalFatos, dias] = await Promise.all([
@@ -26,15 +31,11 @@ export async function getHomeData() {
       ? await db.magicFact.findFirst({ where: { ordem: magiaOrdemDoDia(totalFatos) } })
       : null;
 
-  const comData = await db.milestone.findMany({
-    where: { data: { gte: hoje } },
-    orderBy: [{ data: "asc" }, { hora: "asc" }],
-    take: 3,
-  });
-  const semData =
-    comData.length < 3
-      ? await db.milestone.findMany({ where: { data: null }, take: 3 - comData.length })
-      : [];
+  // status é texto livre (feito/concluído…), então o filtro fica em memória
+  const todosMarcos = await db.milestone.findMany({ orderBy: [{ data: "asc" }, { hora: "asc" }] });
+  const pendentes = todosMarcos.filter((m) => !marcoFeito(m.status));
+  const comData = pendentes.filter((m) => m.data && m.data >= hoje).slice(0, 3);
+  const semData = pendentes.filter((m) => !m.data).slice(0, Math.max(0, 3 - comData.length));
   const marcos = [...comData, ...semData];
 
   const futuros = dias.filter((d) => d.data >= hoje);
@@ -325,7 +326,7 @@ export async function getPendencias() {
     });
   }
   for (const m of marcos) {
-    if (m.status && /feit|conclu|^ok$/i.test(m.status)) continue;
+    if (marcoFeito(m.status)) continue;
     auto.push({
       key: `marco-${m.id}`,
       origem: "Marcos",

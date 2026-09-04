@@ -42,8 +42,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           {user.name} · núcleo {user.nucleo}
         </span>
         <span aria-hidden>·</span>
-        <Link href="/financeiro" className="underline underline-offset-2 hover:text-ink-muted">
-          financeiro
+        <Link href="/turma" className="underline underline-offset-2 hover:text-ink-muted">
+          turma
         </Link>
         <span aria-hidden>·</span>
         <form action={logoutAction}>

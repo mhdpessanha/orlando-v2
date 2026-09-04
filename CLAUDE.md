@@ -72,20 +72,20 @@ Tokens (pro `tailwind.config`):
 - Núcleos (avatares): pessanha dourado `#f6c453` · gabi coral `#ff8a7a` · vitor/mariana teal `#5fd0c5`.
 - Tipografia: Fredoka 500–700 (títulos, números do countdown) + Nunito Sans 400–800 (texto). Labels de seção: 11px, bold, letter-spacing largo, uppercase.
 - Ícones: SVG inline stroke (1.8, round), nunca emoji. Estrelinhas/brilhos com moderação (herói da home e cards especiais).
-- Nav (pílula): Início · Roteiro · Turma · Decisões · Guia. Sem Bolão.
+- Nav (pílula): Início · Roteiro · Financeiro · Decisões · Guia. Sem Bolão. Turma fica no chip "viajantes" da home e no rodapé.
 - **Cards expansíveis:** `CardExpansivel` (card inteiro abre) e `TituloExpansivel` (só o título abre) em `src/components/Detalhe.tsx` abrem uma folha (bottom sheet, portal no body) com o "card maior". Blocos de conteúdo da folha em `src/components/Campo.tsx`. Botões dentro de um card expansível precisam de `stopPropagation` (CopyButton já faz).
 
 ## Telas do MVP
 
 1. **Login** — usuário + senha, erro amigável.
-2. **Início** — countdown grande até 07/01/2027 21h05 (tick por segundo), chips de stats (9 viajantes · 12 dias de parque · 3 casas), card "Magia do dia", próximos marcos (da aba Marcos, ordenados por data, os sem data no fim), prévia dos 3 próximos dias do roteiro.
+2. **Início** — countdown grande até 07/01/2027 21h05 (tick por segundo), chips de stats (9 viajantes · 12 dias de parque · 3 casas), card "Magia do dia", próximos marcos (da aba Marcos, ordenados por data, os sem data no fim; marcos com status feito/concluído/ok não aparecem), prévia dos 3 próximos dias do roteiro.
 3. **Roteiro** — lista dos 18 dias (badge de parque colorido, quem vai, hospedagem da noite); detalhe do dia com timeline da Agenda (dot por período), banner especial em 11/01 (aniversário da Joana).
 4. **Voos** — por grupo (família emitida / Gabi e V&M pendentes), localizador em destaque com copiar.
 5. **Hospedagens** — linha do tempo das 4 estadias.
 6. **Turma** — cards por núcleo, badge de aniversário da Joana.
 7. **Guia** — seções da aba Guia.
 8b. **Pendências** — `/pendencias`, só admin (ver aba Pendencias acima).
-8. **Financeiro** — rota discreta (link no rodapé, não na nav principal). Núcleo: card do próprio pacote (total, pago, falta), lista de pagamentos, "Quanto levar". Admin: consolidado a receber, card por núcleo (toque abre os pagamentos), seção Gastos (previsto × pago × falta), Levar completo.
+8. **Financeiro** — na nav principal (desde 04/09/2026). Núcleo: card do próprio pacote (total, pago, falta), lista de pagamentos, "Quanto levar". Admin: consolidado a receber, card por núcleo (toque abre os pagamentos), seção Gastos (previsto × pago × falta), Levar completo.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
 10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.
 
