@@ -33,24 +33,25 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 |---|---|
 | Roteiro | id, data, dia_semana, titulo, parque_code, quem, hospedagem_noite, early_entry, destaque, notas |
 | Agenda | id, roteiro_id, periodo, ordem, titulo, local, detalhe, chip |
-| Voos | id, grupo, status, trecho, data, voo, origem, destino, saida, chegada, **reserva**, notas |
-| Hospedagens | id, nome, tipo, checkin, checkout, quem, status, confirmacao, notas |
+| Voos | id, grupo, status, trecho, data, voo, origem, destino, saida, chegada, **reserva**, notas · opcionais: bilhete, bagagem, assentos, detalhes |
+| Hospedagens | id, nome, tipo, checkin, checkout, quem, status, confirmacao, notas · opcionais: endereco, detalhes |
 | Turma | id, nome, nucleo, tipo, papel, iniciais, aniversario, tagline |
 | Marcos | id, data, hora, titulo, categoria, status, descricao |
-| Guia | id, secao, ordem, titulo, conteudo |
+| Guia | id, secao, ordem, titulo, conteudo · opcional: detalhes |
 | Financeiro | id, nucleo, item, moeda, valor_total, valor_pago, valor_restante, notas |
 | Magia | id, ordem, tema, texto |
-| Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em |
+| Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em · opcional: explicacao |
 
 Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia sem parque) · `periodo` ∈ manha, tarde, noite · `grupo` (voos) ∈ familia, gabi, vm · `nucleo` ∈ pessanha, gabi, vitor, mariana · `tipo` (turma) ∈ adulto, crianca · `papel` ∈ admin, membro, perfil · `status` (voos/marcos) ∈ emitido/pendente/feito etc. — validar como string curta, não travar em lista fechada.
 
+- **Colunas opcionais** (marcadas acima): se o cabeçalho não existe na aba, a coluna é lida como vazia e a aba NÃO falha. São o conteúdo do "card expandido" (folha de detalhe que abre ao tocar no card em Guia, Voos, Hospedagens e no título da pergunta em Decisões). Texto longo com quebras de linha é respeitado.
 - **Voos: a coluna `reserva` é o localizador** e deve aparecer em destaque no site, com botão de copiar — é o dado que a família vai buscar na correria do aeroporto. `notas` é contexto secundário.
 - **Magia:** item do dia determinístico: `ordem = ((diasCorridosDesde(2026-09-04)) mod N) + 1`, virando à meia-noite de Brasília; datas antes do epoch mostram o #1. Mostrar "#<ordem> de <N>".
-- **Decisoes (votações):** as perguntas são conteúdo (vêm da planilha); os votos são interação (só SQLite, tabela `Vote`, 1 por usuário/pergunta, pode trocar enquanto aberta). `opcoes` separadas por `\|` (mínimo 2) · `status` vazio = aberta, `fechada` = encerrada · `encerra_em` opcional (aceita votos até o fim daquele dia, Brasília). Tela `/decisoes` + card na home + link no rodapé.
+- **Decisoes (votações):** as perguntas são conteúdo (vêm da planilha); os votos são interação (só SQLite, tabela `Vote`, 1 por usuário/pergunta, pode trocar enquanto aberta). `opcoes` separadas por `\|` (mínimo 2) · `status` vazio = aberta, `fechada` = encerrada · `encerra_em` opcional (aceita votos até o fim daquele dia, Brasília). Tela `/decisoes` + card na home + ícone na nav (badge com nº de decisões em aberto; dourado enquanto falta o voto de quem está logado).
 
 ## Modelo de dados (Prisma, direção)
 
-`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `FinanceItem`, `MagicFact`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `Prediction`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. `FinanceItem.nucleo` indexado; toda query financeira filtra por núcleo do usuário logado no server.
+`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `FinanceItem`, `MagicFact`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `FinanceItem.nucleo` indexado; toda query financeira filtra por núcleo do usuário logado no server.
 
 ## Design — "noite de fogos"
 
@@ -65,6 +66,8 @@ Tokens (pro `tailwind.config`):
 - Núcleos (avatares): pessanha dourado `#f6c453` · gabi coral `#ff8a7a` · vitor/mariana teal `#5fd0c5`.
 - Tipografia: Fredoka 500–700 (títulos, números do countdown) + Nunito Sans 400–800 (texto). Labels de seção: 11px, bold, letter-spacing largo, uppercase.
 - Ícones: SVG inline stroke (1.8, round), nunca emoji. Estrelinhas/brilhos com moderação (herói da home e cards especiais).
+- Nav (pílula): Início · Roteiro · Turma · Decisões · Guia. Sem Bolão.
+- **Cards expansíveis:** `CardExpansivel` (card inteiro abre) e `TituloExpansivel` (só o título abre) em `src/components/Detalhe.tsx` abrem uma folha (bottom sheet, portal no body) com o "card maior". Blocos de conteúdo da folha em `src/components/Campo.tsx`. Botões dentro de um card expansível precisam de `stopPropagation` (CopyButton já faz).
 
 ## Telas do MVP
 
@@ -77,7 +80,7 @@ Tokens (pro `tailwind.config`):
 7. **Guia** — seções da aba Guia.
 8. **Financeiro** — rota discreta (link no rodapé, não na nav principal): pago × restante do núcleo do usuário.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
-10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê.
+10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.
 
 Modo viagem (home vira "hoje") é fase 3 — deixar o layout da home preparado, não implementar agora.
 

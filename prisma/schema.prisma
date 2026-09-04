@@ -17,7 +17,6 @@ model User {
   createdAt      DateTime        @default(now())
   sessions       Session[]
   votes          Vote[]
-  predictions    Prediction[]
   triviaAnswers  TriviaAnswer[]
   checklistTicks ChecklistTick[]
 }
@@ -81,6 +80,11 @@ model Flight {
   chegada String?
   reserva String? // localizador — destaque no site, com botão de copiar
   notas   String?
+  // colunas opcionais da aba (card expandido)
+  bilhete  String?
+  bagagem  String?
+  assentos String?
+  detalhes String?
 }
 
 model Accommodation {
@@ -93,6 +97,9 @@ model Accommodation {
   status      String?
   confirmacao String?
   notas       String?
+  // colunas opcionais da aba (card expandido)
+  endereco String?
+  detalhes String?
 }
 
 model Person {
@@ -122,6 +129,7 @@ model GuideEntry {
   ordem    Int
   titulo   String
   conteudo String?
+  detalhes String? // opcional: texto longo do card expandido
 }
 
 model FinanceItem {
@@ -152,6 +160,7 @@ model Poll {
   opcoes    String // opções separadas por "|"
   status    String? // vazio/aberta = aceita votos; "fechada" = encerrada
   encerraEm String? // vota até o fim deste dia (Brasília)
+  explicacao String? // opcional: explicação longa, abre ao tocar na pergunta
 }
 
 // ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
@@ -165,17 +174,6 @@ model Vote {
   createdAt DateTime @default(now())
 
   @@unique([userId, pollId])
-}
-
-model Prediction {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  key       String
-  valor     String
-  createdAt DateTime @default(now())
-
-  @@unique([userId, key])
 }
 
 model TriviaRound {

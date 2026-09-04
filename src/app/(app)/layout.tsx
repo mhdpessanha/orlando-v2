@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { avatarVariant } from "@/lib/avatars";
+import { getDecisoesResumo } from "@/lib/queries";
 import { SparkleIcon } from "@/components/icons";
 import NavPill from "@/components/NavPill";
 import SyncButton from "@/components/SyncButton";
@@ -12,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect("/login");
   const { user } = session;
   const avatar = avatarVariant(user.nucleo, 0);
+  const decisoes = await getDecisoesResumo(session.userId);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col pb-[18px] pt-6">
@@ -33,7 +35,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <main className="flex-grow px-[22px]">{children}</main>
 
-      <NavPill />
+      <NavPill decisoes={decisoes} />
 
       <footer className="mt-5 flex items-center justify-center gap-3 px-[22px] text-[11px] font-bold text-ink-faint">
         <span>
@@ -42,10 +44,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <span aria-hidden>·</span>
         <Link href="/financeiro" className="underline underline-offset-2 hover:text-ink-muted">
           financeiro
-        </Link>
-        <span aria-hidden>·</span>
-        <Link href="/decisoes" className="underline underline-offset-2 hover:text-ink-muted">
-          decisões
         </Link>
         <span aria-hidden>·</span>
         <form action={logoutAction}>

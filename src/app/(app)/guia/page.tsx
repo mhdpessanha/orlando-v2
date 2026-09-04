@@ -1,3 +1,5 @@
+import { Texto } from "@/components/Campo";
+import { CardExpansivel } from "@/components/Detalhe";
 import { getGuia } from "@/lib/queries";
 
 export const metadata = { title: "Guia · Orlando 2027" };
@@ -22,17 +24,37 @@ export default async function GuiaPage() {
             {secao}
           </span>
           {itens.map((item) => (
-            <div
+            <CardExpansivel
               key={item.id}
+              titulo={item.titulo}
+              rotulo={secao}
               className="flex flex-col gap-1.5 rounded-card border border-stroke bg-surface p-4"
+              detalhe={
+                <>
+                  {item.conteudo && (
+                    <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink">
+                      {item.conteudo}
+                    </p>
+                  )}
+                  {item.detalhes ? (
+                    <Texto label="Mais detalhes">{item.detalhes}</Texto>
+                  ) : (
+                    !item.conteudo && (
+                      <span className="text-[12.5px] text-ink-muted">
+                        ainda sem conteúdo — vem da planilha
+                      </span>
+                    )
+                  )}
+                </>
+              }
             >
               <span className="text-[14px] font-extrabold">{item.titulo}</span>
               {item.conteudo && (
-                <span className="text-[12.5px] leading-relaxed text-ink-muted">
+                <span className="line-clamp-3 text-[12.5px] leading-relaxed text-ink-muted">
                   {item.conteudo}
                 </span>
               )}
-            </div>
+            </CardExpansivel>
           ))}
         </section>
       ))}

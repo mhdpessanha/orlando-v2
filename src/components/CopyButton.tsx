@@ -6,7 +6,9 @@ import { CheckIcon, CopyIcon } from "./icons";
 export default function CopyButton({ texto, label }: { texto: string; label?: string }) {
   const [copiado, setCopiado] = useState(false);
 
-  async function copiar() {
+  // stopPropagation: o botão vive dentro de cards que abrem detalhe ao toque
+  async function copiar(e: React.MouseEvent) {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);

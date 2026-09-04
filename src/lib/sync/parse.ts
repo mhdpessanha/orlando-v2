@@ -11,10 +11,13 @@ export function normCell(v: unknown): string {
 }
 
 // Linha 1 é o contrato: cabeçalho esperado ausente → a aba inteira falha.
-// Colunas extras desconhecidas são ignoradas. Linhas 100% vazias são puladas.
+// Cabeçalhos opcionais (colunas novas, ex.: detalhes de voo) viram "" quando
+// ainda não existem na aba. Colunas extras desconhecidas são ignoradas.
+// Linhas 100% vazias são puladas.
 export function rowsToObjects(
   values: unknown[][],
   headersEsperados: readonly string[],
+  headersOpcionais: readonly string[] = [],
 ): { obj: Record<string, string>; linha: number }[] {
   if (values.length === 0) throw new TabError("aba vazia (sem linha de cabeçalho)");
   const headers = (values[0] ?? []).map((h) => String(h ?? "").trim());
@@ -22,15 +25,17 @@ export function rowsToObjects(
   if (faltando.length > 0) {
     throw new TabError(`cabeçalho ausente: ${faltando.join(", ")}`);
   }
-  const idx = new Map(headersEsperados.map((h) => [h, headers.indexOf(h)]));
+  const todos = [...headersEsperados, ...headersOpcionais];
+  const idx = new Map(todos.map((h) => [h, headers.indexOf(h)]));
 
   const out: { obj: Record<string, string>; linha: number }[] = [];
   for (let i = 1; i < values.length; i++) {
     const row = values[i] ?? [];
     const obj: Record<string, string> = {};
     let temAlgo = false;
-    for (const h of headersEsperados) {
-      const cell = normCell(row[idx.get(h)!]);
+    for (const h of todos) {
+      const col = idx.get(h)!;
+      const cell = col < 0 ? "" : normCell(row[col]);
       obj[h] = cell;
       if (cell !== "") temAlgo = true;
     }

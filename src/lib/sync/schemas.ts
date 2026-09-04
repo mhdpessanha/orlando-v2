@@ -79,6 +79,11 @@ export const voosSchema = z.object({
   chegada: timeOpt,
   reserva: opt,
   notas: opt,
+  // colunas opcionais (detalhe do voo no site)
+  bilhete: opt,
+  bagagem: opt,
+  assentos: opt,
+  detalhes: opt,
 });
 
 export const hospedagensSchema = z.object({
@@ -91,6 +96,9 @@ export const hospedagensSchema = z.object({
   status: curtaOpt,
   confirmacao: opt,
   notas: opt,
+  // colunas opcionais (detalhe da estadia no site)
+  endereco: opt,
+  detalhes: opt,
 });
 
 export const turmaSchema = z.object({
@@ -120,6 +128,8 @@ export const guiaSchema = z.object({
   ordem: intReq,
   titulo: req,
   conteudo: opt,
+  // coluna opcional (texto longo do card expandido)
+  detalhes: opt,
 });
 
 export const financeiroSchema = z.object({
@@ -151,4 +161,6 @@ export const decisoesSchema = z.object({
   ),
   status: curtaOpt,
   encerra_em: dateOpt,
+  // coluna opcional (explicação longa, abre ao tocar na pergunta)
+  explicacao: opt,
 });

@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { Texto } from "@/components/Campo";
+import { TituloExpansivel } from "@/components/Detalhe";
 import { CheckIcon } from "@/components/icons";
-import { chipPrazo } from "@/lib/format";
+import { chipPrazo, diaMes } from "@/lib/format";
 import { getDecisoes } from "@/lib/queries";
 import { votarAction } from "./actions";
 
@@ -34,6 +36,52 @@ function BarraResultado({
   );
 }
 
+function DetalheDecisao({ d }: { d: Decisao }) {
+  const { poll, opcoes, aberta, totalVotos, faltam } = d;
+  return (
+    <>
+      <span className="text-[12.5px] font-bold text-ink-muted">
+        {aberta
+          ? poll.encerraEm
+            ? `aberta até ${diaMes(poll.encerraEm)}`
+            : "aberta, sem prazo definido"
+          : `decidida com ${totalVotos} ${totalVotos === 1 ? "voto" : "votos"}`}
+      </span>
+
+      {poll.detalhe && (
+        <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink">{poll.detalhe}</p>
+      )}
+      {poll.explicacao ? (
+        <Texto label="Explicação">{poll.explicacao}</Texto>
+      ) : (
+        !poll.detalhe && (
+          <span className="text-[12.5px] text-ink-muted">
+            sem explicação extra por enquanto — vem da planilha
+          </span>
+        )
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[9.5px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+          Opções
+        </span>
+        <ul className="flex flex-col gap-1">
+          {opcoes.map((o) => (
+            <li key={o} className="flex items-center gap-2 text-[13.5px] font-semibold">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-lavanda" />
+              {o}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {aberta && faltam.length > 0 && (
+        <span className="text-[11.5px] text-ink-faint">ainda não votaram: {faltam.join(", ")}</span>
+      )}
+    </>
+  );
+}
+
 function CardDecisao({ d }: { d: Decisao }) {
   const { poll, aberta, meuVoto, porOpcao, totalVotos, faltam } = d;
   const mostrarResultado = meuVoto !== null || !aberta;
@@ -46,9 +94,18 @@ function CardDecisao({ d }: { d: Decisao }) {
       }`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-[15px] font-extrabold leading-snug">{poll.pergunta}</span>
-          {poll.detalhe && <span className="text-[12px] text-ink-muted">{poll.detalhe}</span>}
+        <div className="flex min-w-0 flex-col gap-1">
+          <TituloExpansivel
+            titulo={poll.pergunta}
+            rotulo={aberta ? "Decisão em aberto" : "Decidida"}
+            className="text-[15px] font-extrabold leading-snug"
+            detalhe={<DetalheDecisao d={d} />}
+          >
+            {poll.pergunta}
+          </TituloExpansivel>
+          {poll.detalhe && (
+            <span className="line-clamp-2 text-[12px] text-ink-muted">{poll.detalhe}</span>
+          )}
         </div>
         <span
           className={`shrink-0 rounded-full border px-2.5 py-[5px] text-[10.5px] font-extrabold ${

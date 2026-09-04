@@ -67,18 +67,6 @@ export function MapIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function TrophyIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg {...base(props)}>
-      <path d="M7 4h10v4a5 5 0 01-10 0z" />
-      <path d="M7 5H4.5A2.5 2.5 0 007 9.5" />
-      <path d="M17 5h2.5A2.5 2.5 0 0117 9.5" />
-      <path d="M12 13v3.5" />
-      <path d="M8.5 19.5h7" />
-    </svg>
-  );
-}
-
 export function BookIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>
@@ -178,6 +166,34 @@ export function LogoutIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M9 4H5.5A1.5 1.5 0 004 5.5v13A1.5 1.5 0 005.5 20H9" />
       <path d="M15 8l4 4-4 4" />
       <path d="M19 12H9" />
+    </svg>
+  );
+}
+
+export function CloseIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6 6l12 12" />
+      <path d="M18 6L6 18" />
+    </svg>
+  );
+}
+
+export function InfoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5" />
+      <path d="M12 7.8v.3" />
+    </svg>
+  );
+}
+
+export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0113 0c0 5.4-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.4" />
     </svg>
   );
 }

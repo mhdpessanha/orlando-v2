@@ -63,6 +63,8 @@ function mirror<T extends { id: string }>(
 type TabDef = {
   aba: string;
   headers: readonly string[];
+  // colunas que podem ainda não existir na aba (viram vazias até serem criadas)
+  opcionais?: readonly string[];
   processar: (rows: RawRows) => Promise<number>;
 };
 
@@ -116,6 +118,7 @@ const TABS: TabDef[] = [
   {
     aba: "Voos",
     headers: ["id", "grupo", "status", "trecho", "data", "voo", "origem", "destino", "saida", "chegada", "reserva", "notas"],
+    opcionais: ["bilhete", "bagagem", "assentos", "detalhes"],
     processar: async (rows) => {
       const data = validar(voosSchema, rows).map((r) => ({
         id: r.id,
@@ -130,6 +133,10 @@ const TABS: TabDef[] = [
         chegada: r.chegada,
         reserva: r.reserva,
         notas: r.notas,
+        bilhete: r.bilhete,
+        bagagem: r.bagagem,
+        assentos: r.assentos,
+        detalhes: r.detalhes,
       }));
       await mirror(
         data,
@@ -142,6 +149,7 @@ const TABS: TabDef[] = [
   {
     aba: "Hospedagens",
     headers: ["id", "nome", "tipo", "checkin", "checkout", "quem", "status", "confirmacao", "notas"],
+    opcionais: ["endereco", "detalhes"],
     processar: async (rows) => {
       const data = validar(hospedagensSchema, rows).map((r) => ({
         id: r.id,
@@ -153,6 +161,8 @@ const TABS: TabDef[] = [
         status: r.status,
         confirmacao: r.confirmacao,
         notas: r.notas,
+        endereco: r.endereco,
+        detalhes: r.detalhes,
       }));
       await mirror(
         data,
@@ -208,6 +218,7 @@ const TABS: TabDef[] = [
   {
     aba: "Guia",
     headers: ["id", "secao", "ordem", "titulo", "conteudo"],
+    opcionais: ["detalhes"],
     processar: async (rows) => {
       const data = validar(guiaSchema, rows).map((r) => ({
         id: r.id,
@@ -215,6 +226,7 @@ const TABS: TabDef[] = [
         ordem: r.ordem,
         titulo: r.titulo,
         conteudo: r.conteudo,
+        detalhes: r.detalhes,
       }));
       await mirror(
         data,
@@ -249,6 +261,7 @@ const TABS: TabDef[] = [
   {
     aba: "Decisoes",
     headers: ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
+    opcionais: ["explicacao"],
     processar: async (rows) => {
       const data = validar(decisoesSchema, rows).map((r) => ({
         id: r.id,
@@ -258,6 +271,7 @@ const TABS: TabDef[] = [
         opcoes: r.opcoes,
         status: r.status,
         encerraEm: r.encerra_em,
+        explicacao: r.explicacao,
       }));
       await mirror(
         data,
@@ -314,7 +328,7 @@ async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
   for (const tab of TABS) {
     try {
       const values = await fetcher(tab.aba);
-      const rows = rowsToObjects(values, tab.headers);
+      const rows = rowsToObjects(values, tab.headers, tab.opcionais);
       const linhas = await tab.processar(rows);
       abas.push({ aba: tab.aba, status: "ok", linhas });
       await db.syncLog.create({ data: { aba: tab.aba, status: "ok" } });
