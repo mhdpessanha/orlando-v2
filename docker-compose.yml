@@ -7,14 +7,6 @@ services:
     volumes:
       - ./data:/app/data
     ports:
-      # acesso direto na rede local (opcional; o tunnel usa a rede interna do compose)
+      # o tunnel do host (projeto ~/docker/cloudflare) aponta
+      # orlando.pessanhaserver.com.br -> http://192.168.3.253:3000
       - "3000:3000"
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
-    depends_on:
-      - app
