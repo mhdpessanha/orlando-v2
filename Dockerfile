@@ -28,6 +28,9 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY prisma ./prisma
 COPY scripts ./scripts
+# o standalone embute o bcryptjs no bundle do server, mas o scripts/create-user.mjs
+# roda fora do bundle e precisa do pacote solto
+COPY --from=deps /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY docker-entrypoint.sh ./
 EXPOSE 3000
 CMD ["sh", "docker-entrypoint.sh"]
