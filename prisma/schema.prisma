@@ -144,6 +144,16 @@ model MagicFact {
   texto String
 }
 
+model Poll {
+  id        String  @id
+  ordem     Int
+  pergunta  String
+  detalhe   String?
+  opcoes    String // opções separadas por "|"
+  status    String? // vazio/aberta = aceita votos; "fechada" = encerrada
+  encerraEm String? // vota até o fim deste dia (Brasília)
+}
+
 // ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
 
 model Vote {

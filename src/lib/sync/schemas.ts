@@ -139,3 +139,16 @@ export const magiaSchema = z.object({
   tema: opt,
   texto: req,
 });
+
+export const decisoesSchema = z.object({
+  id: req,
+  ordem: intReq,
+  pergunta: req,
+  detalhe: opt,
+  opcoes: req.refine(
+    (v) => v.split("|").map((s) => s.trim()).filter(Boolean).length >= 2,
+    "precisa de pelo menos 2 opções separadas por |",
+  ),
+  status: curtaOpt,
+  encerra_em: dateOpt,
+});

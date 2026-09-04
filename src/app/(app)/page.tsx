@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Countdown from "@/components/Countdown";
 import {
+  BallotIcon,
   CalendarIcon,
   ChevronRightIcon,
   HouseIcon,
@@ -9,9 +10,10 @@ import {
   TicketIcon,
   UsersIcon,
 } from "@/components/icons";
+import { getSession } from "@/lib/auth";
 import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
 import { PARQUE_INFO } from "@/lib/parques";
-import { getHomeData } from "@/lib/queries";
+import { getDecisoesResumo, getHomeData } from "@/lib/queries";
 
 function StarField() {
   return (
@@ -66,7 +68,11 @@ function marcoEstilo(categoria: string | null) {
 }
 
 export default async function HomePage() {
-  const { chips, magia, marcos, proximosDias, totalDias } = await getHomeData();
+  const [{ chips, magia, marcos, proximosDias, totalDias }, session] = await Promise.all([
+    getHomeData(),
+    getSession(),
+  ]);
+  const decisoes = session ? await getDecisoesResumo(session.userId) : null;
 
   return (
     <div className="flex flex-col gap-[26px] pt-[26px]">
@@ -102,6 +108,32 @@ export default async function HomePage() {
           label={`${chips.casas} casas`}
         />
       </section>
+
+      {decisoes && (
+        <Link
+          href="/decisoes"
+          className="flex items-center gap-3.5 rounded-card border border-gold/40 bg-[linear-gradient(135deg,rgba(246,196,83,0.16),rgba(246,196,83,0.04))] px-4 py-[15px]"
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-gold/[0.14]">
+            <BallotIcon width={20} height={20} className="text-gold-light" />
+          </div>
+          <div className="flex grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">
+              {decisoes.pendentes > 0
+                ? `${decisoes.pendentes} ${decisoes.pendentes === 1 ? "decisão esperando" : "decisões esperando"} seu voto`
+                : "Decisões da viagem"}
+            </span>
+            <span className="text-[12px] text-ink-muted">
+              {decisoes.pendentes > 0
+                ? "vota aí que o plano anda"
+                : decisoes.abertas > 0
+                  ? "você já votou em tudo — ver o parcial"
+                  : "ver como ficou cada escolha"}
+            </span>
+          </div>
+          <ChevronRightIcon width={15} height={15} className="shrink-0 text-gold-light" />
+        </Link>
+      )}
 
       {magia && (
         <section className="flex flex-col gap-2 rounded-card border border-[rgba(143,123,255,0.45)] bg-[linear-gradient(135deg,rgba(143,123,255,0.18),rgba(87,199,216,0.1))] p-4">

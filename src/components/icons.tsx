@@ -146,6 +146,15 @@ export function BedIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export function BallotIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="4" width="16" height="16" rx="3" />
+      <path d="M8.5 12.5l2.5 2.5 4.5-5" />
+    </svg>
+  );
+}
+
 export function CopyIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base(props)}>

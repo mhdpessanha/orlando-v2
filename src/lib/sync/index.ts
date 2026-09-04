@@ -5,6 +5,7 @@ import { fetchTab, sheetsIndisponivel } from "./sheets";
 import { rowsToObjects, TabError } from "./parse";
 import {
   agendaSchema,
+  decisoesSchema,
   financeiroSchema,
   guiaSchema,
   hospedagensSchema,
@@ -241,6 +242,27 @@ const TABS: TabDef[] = [
         data,
         (d) => db.financeItem.upsert({ where: { id: d.id }, update: d, create: d }),
         (ids) => db.financeItem.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
+    aba: "Decisoes",
+    headers: ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
+    processar: async (rows) => {
+      const data = validar(decisoesSchema, rows).map((r) => ({
+        id: r.id,
+        ordem: r.ordem,
+        pergunta: r.pergunta,
+        detalhe: r.detalhe,
+        opcoes: r.opcoes,
+        status: r.status,
+        encerraEm: r.encerra_em,
+      }));
+      await mirror(
+        data,
+        (d) => db.poll.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.poll.deleteMany({ where: { id: { notIn: ids } } }),
       );
       return data.length;
     },

@@ -53,6 +53,11 @@ const FIXTURE_OK: Fixture = {
     ["mg1", "1", "castelo", "O Castelo da Cinderela tem 57 metros e nenhum tijolo."],
     ["mg2", "2", "epcot", "A esfera do EPCOT tem 11.324 painéis de alumínio."],
   ],
+  Decisoes: [
+    ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
+    ["d01", "1", "Dia 17: qual parque?", "", "IOA|Epic Universe", "", "2026-12-01"],
+    ["d02", "2", "Jantar do dia 23?", "última noite", "Churrasco em casa|Disney Springs", "fechada", ""],
+  ],
 };
 
 function fetcherDe(fixture: Fixture) {
@@ -67,7 +72,8 @@ async function main() {
   // ── 1º sync: tudo válido ──
   const r1 = await runSync("teste-ok", fetcherDe(FIXTURE_OK));
   assert.equal(r1.ok, true, `sync 1 deveria passar: ${JSON.stringify(r1.abas)}`);
-  assert.equal(r1.abas.length, 9);
+  assert.equal(r1.abas.length, 10);
+  assert.equal(await db.poll.count(), 2);
 
   assert.equal(await db.day.count(), 3);
   assert.equal(await db.agendaItem.count(), 3);

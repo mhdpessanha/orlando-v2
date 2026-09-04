@@ -40,11 +40,13 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 | Guia | id, secao, ordem, titulo, conteudo |
 | Financeiro | id, nucleo, item, moeda, valor_total, valor_pago, valor_restante, notas |
 | Magia | id, ordem, tema, texto |
+| Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em |
 
 Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia sem parque) · `periodo` ∈ manha, tarde, noite · `grupo` (voos) ∈ familia, gabi, vm · `nucleo` ∈ pessanha, gabi, vitor, mariana · `tipo` (turma) ∈ adulto, crianca · `papel` ∈ admin, membro, perfil · `status` (voos/marcos) ∈ emitido/pendente/feito etc. — validar como string curta, não travar em lista fechada.
 
 - **Voos: a coluna `reserva` é o localizador** e deve aparecer em destaque no site, com botão de copiar — é o dado que a família vai buscar na correria do aeroporto. `notas` é contexto secundário.
 - **Magia:** item do dia determinístico: `ordem = ((diasCorridosDesde(2026-08-28)) mod N) + 1`, virando à meia-noite de Brasília. Mostrar "#<ordem> de <N>".
+- **Decisoes (votações):** as perguntas são conteúdo (vêm da planilha); os votos são interação (só SQLite, tabela `Vote`, 1 por usuário/pergunta, pode trocar enquanto aberta). `opcoes` separadas por `\|` (mínimo 2) · `status` vazio = aberta, `fechada` = encerrada · `encerra_em` opcional (aceita votos até o fim daquele dia, Brasília). Tela `/decisoes` + card na home + link no rodapé.
 
 ## Modelo de dados (Prisma, direção)
 
@@ -75,6 +77,7 @@ Tokens (pro `tailwind.config`):
 7. **Guia** — seções da aba Guia.
 8. **Financeiro** — rota discreta (link no rodapé, não na nav principal): pago × restante do núcleo do usuário.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
+10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê.
 
 Modo viagem (home vira "hoje") é fase 3 — deixar o layout da home preparado, não implementar agora.
 

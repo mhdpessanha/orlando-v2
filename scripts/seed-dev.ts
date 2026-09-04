@@ -94,6 +94,11 @@ const FIXTURE: Record<string, unknown[][]> = {
     ["f06", "vitor", "Cota da casa de Kissimmee", "USD", "420,00", "0", "420,00", ""],
     ["f07", "mariana", "Cota da casa de Kissimmee", "USD", "420,00", "0", "420,00", ""],
   ],
+  Decisoes: [
+    ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
+    ["d01", "1", "Dia 17: Islands of Adventure ou Epic Universe?", "o dia 17/01 é Universal — falta escolher o parque", "Islands of Adventure|Epic Universe", "", "2026-12-01"],
+    ["d02", "2", "Jantar da última noite (23/01)?", "", "Churrasco na casa|Disney Springs", "fechada", ""],
+  ],
   Magia: [
     ["id", "ordem", "tema", "texto"],
     ["mg1", "1", "castelo", "O Castelo da Cinderela tem 57 metros de altura — e nenhum tijolo: é fibra de vidro sobre uma estrutura de aço."],

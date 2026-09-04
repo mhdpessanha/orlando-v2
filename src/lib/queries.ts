@@ -137,18 +137,82 @@ export async function getGuia() {
   return [...secoes.entries()].map(([secao, itens]) => ({ secao, itens }));
 }
 
-// Premissa 2: visibilidade financeira aplicada AQUI, no server.
-export async function getFinanceiro(user: { nucleo: string; papel: string }) {
-  const where = user.papel === "admin" ? {} : { nucleo: user.nucleo };
-  const itens = await db.financeItem.findMany({
-    where,
-    orderBy: [{ nucleo: "asc" }, { id: "asc" }],
+export function parseOpcoes(opcoes: string): string[] {
+  return opcoes.split("|").map((s) => s.trim()).filter(Boolean);
+}
+
+export function pollAberta(poll: { status: string | null; encerraEm: string | null }): boolean {
+  if (poll.status && /fechad/i.test(poll.status)) return false;
+  if (poll.encerraEm && poll.encerraEm < hojeBrasilia()) return false;
+  return true;
+}
+
+// Decisões com resultado: quem votou em quê, meu voto, quem falta.
+// Votos em opções que saíram da planilha são ignorados (a pessoa revota).
+export async function getDecisoes(userId: string) {
+  const [polls, votos, usuarios] = await Promise.all([
+    db.poll.findMany({ orderBy: { ordem: "asc" } }),
+    db.vote.findMany({ include: { user: { select: { id: true, name: true } } } }),
+    db.user.findMany({ select: { id: true, name: true } }),
+  ]);
+  return polls.map((poll) => {
+    const opcoes = parseOpcoes(poll.opcoes);
+    const doPoll = votos.filter((v) => v.pollId === poll.id && opcoes.includes(v.choice));
+    const meuVoto = doPoll.find((v) => v.userId === userId)?.choice ?? null;
+    return {
+      poll,
+      opcoes,
+      aberta: pollAberta(poll),
+      meuVoto,
+      totalVotos: doPoll.length,
+      porOpcao: opcoes.map((opcao) => ({
+        opcao,
+        votantes: doPoll.filter((v) => v.choice === opcao).map((v) => v.user.name),
+      })),
+      faltam: usuarios.filter((u) => !doPoll.some((v) => v.userId === u.id)).map((u) => u.name),
+    };
   });
-  const nucleos = new Map<string, typeof itens>();
+}
+
+// Resumo pro card da home: quantas abertas e quantas ainda sem o meu voto.
+export async function getDecisoesResumo(userId: string) {
+  const polls = await db.poll.findMany();
+  const abertas = polls.filter(pollAberta);
+  if (polls.length === 0) return null;
+  const meus = await db.vote.findMany({ where: { userId } });
+  const pendentes = abertas.filter((p) => {
+    const v = meus.find((m) => m.pollId === p.id);
+    return !v || !parseOpcoes(p.opcoes).includes(v.choice);
+  }).length;
+  return { abertas: abertas.length, pendentes };
+}
+
+// Premissa 2: visibilidade financeira aplicada AQUI, no server.
+// A tela mostra só o agregado do núcleo (total/pago/restante), por moeda —
+// os itens individuais ficam na planilha do Murilo.
+export async function getFinanceiroResumo(user: { nucleo: string; papel: string }) {
+  const where = user.papel === "admin" ? {} : { nucleo: user.nucleo };
+  const itens = await db.financeItem.findMany({ where, orderBy: { id: "asc" } });
+
+  type Agregado = { total: number; pago: number; restante: number; preenchido: boolean };
+  const porNucleo = new Map<string, Map<string, Agregado>>();
   for (const i of itens) {
-    const lista = nucleos.get(i.nucleo) ?? [];
-    lista.push(i);
-    nucleos.set(i.nucleo, lista);
+    const moedas = porNucleo.get(i.nucleo) ?? new Map<string, Agregado>();
+    const code = i.moeda ?? "BRL";
+    const t = moedas.get(code) ?? { total: 0, pago: 0, restante: 0, preenchido: false };
+    t.total += i.valorTotal ?? 0;
+    t.pago += i.valorPago ?? 0;
+    t.restante +=
+      i.valorRestante ??
+      (i.valorTotal != null && i.valorPago != null ? i.valorTotal - i.valorPago : 0);
+    // enquanto a planilha só tem os itens (sem números), a tela mostra "em preenchimento"
+    t.preenchido ||= i.valorTotal != null || i.valorPago != null || i.valorRestante != null;
+    moedas.set(code, t);
+    porNucleo.set(i.nucleo, moedas);
   }
-  return [...nucleos.entries()].map(([nucleo, lista]) => ({ nucleo, itens: lista }));
+
+  return [...porNucleo.entries()].map(([nucleo, moedas]) => ({
+    nucleo,
+    moedas: [...moedas.entries()].map(([moeda, v]) => ({ moeda, ...v })),
+  }));
 }

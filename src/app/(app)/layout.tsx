@@ -44,6 +44,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           financeiro
         </Link>
         <span aria-hidden>·</span>
+        <Link href="/decisoes" className="underline underline-offset-2 hover:text-ink-muted">
+          decisões
+        </Link>
+        <span aria-hidden>·</span>
         <form action={logoutAction}>
           <button type="submit" className="underline underline-offset-2 hover:text-ink-muted">
             sair
