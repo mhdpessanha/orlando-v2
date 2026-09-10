@@ -16,7 +16,7 @@ type FolhaProps = {
   children: ReactNode;
 };
 
-function Folha({ aberta, onFechar, titulo, rotulo, children }: FolhaProps) {
+export function Folha({ aberta, onFechar, titulo, rotulo, children }: FolhaProps) {
   useEffect(() => {
     if (!aberta) return;
     const onKey = (e: KeyboardEvent) => {

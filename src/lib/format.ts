@@ -93,3 +93,13 @@ export function moeda(valor: number, moedaCode: string | null): string {
   const symbol = moedaCode === "USD" ? "US$" : "R$";
   return `${symbol} ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+// Preço digitado pelo usuário ("R$ 1.234,56", "1234.56", "120") → número.
+// Vazio → null; texto sem número → NaN (quem chama decide a mensagem).
+export function parsePreco(texto: string | null | undefined): number | null {
+  const s = (texto ?? "").replace(/[R$\s]/g, "").trim();
+  if (!s) return null;
+  const normalizado = s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : s;
+  const n = Number(normalizado);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : NaN;
+}

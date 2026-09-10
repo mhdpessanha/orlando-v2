@@ -207,3 +207,51 @@ export function WalletIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function BagIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M5.5 8.5h13l-1 11.5h-11z" />
+      <path d="M9 8.5V7a3 3 0 016 0v1.5" />
+    </svg>
+  );
+}
+
+export function LockIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="5" y="11" width="14" height="9" rx="2.2" />
+      <path d="M8 11V8.2a4 4 0 018 0V11" />
+    </svg>
+  );
+}
+
+export function PlusIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+export function TrashIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4.5 7h15" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M6.5 7l.9 12.5h9.2L17.5 7" />
+    </svg>
+  );
+}
+
+export function GiftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 11h16v9H4z" />
+      <path d="M3 7.5h18V11H3z" />
+      <path d="M12 7.5V20" />
+      <path d="M12 7.5c-1.5-3.5-5.5-3.5-5 0M12 7.5c1.5-3.5 5.5-3.5 5 0" />
+    </svg>
+  );
+}

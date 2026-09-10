@@ -19,6 +19,7 @@ model User {
   votes          Vote[]
   triviaAnswers  TriviaAnswer[]
   checklistTicks ChecklistTick[]
+  wishItems      WishItem[]
 }
 
 model Session {
@@ -255,4 +256,24 @@ model ChecklistTick {
   createdAt DateTime @default(now())
 
   @@unique([userId, itemKey])
+}
+
+// Lista de compras: interação do usuário (nunca vai pra planilha).
+// Cada item é público (família vê) ou privado (só o dono; nem o admin vê).
+model WishItem {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nome         String
+  onde         String? // loja/lugar (texto livre)
+  paraPersonId String? // Person.id da Turma (sem FK: a aba sincroniza sozinha); null = pra mim
+  precoBrasil  Float? // preço estimado no Brasil (R$), base pra comparar lá
+  link         String?
+  notas        String?
+  publico      Boolean  @default(true)
+  comprado     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
 }

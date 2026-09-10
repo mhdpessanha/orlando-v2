@@ -362,3 +362,70 @@ export async function getPendencias() {
 
   return { abertas, feitas, auto };
 }
+
+// ── Lista de compras (interação: só SQLite, nunca vai pra planilha) ──
+// Visibilidade aplicada aqui: item privado só sai do servidor pro próprio dono.
+
+function somaPrecos(itens: { precoBrasil: number | null }[]): number {
+  return itens.reduce((acc, i) => acc + (i.precoBrasil ?? 0), 0);
+}
+
+export async function getCompras(userId: string) {
+  const [itens, pessoas] = await Promise.all([
+    db.wishItem.findMany({
+      where: { OR: [{ userId }, { publico: true }] },
+      include: { user: { select: { id: true, name: true, nucleo: true } } },
+      orderBy: [{ comprado: "asc" }, { createdAt: "desc" }],
+    }),
+    getPessoas(),
+  ]);
+  const nomePessoa = (id: string | null) =>
+    id ? (pessoas.find((p) => p.id === id)?.nome ?? null) : null;
+  const decorar = (i: (typeof itens)[number]) => ({
+    id: i.id,
+    nome: i.nome,
+    onde: i.onde,
+    paraPersonId: i.paraPersonId,
+    paraNome: nomePessoa(i.paraPersonId),
+    precoBrasil: i.precoBrasil,
+    link: i.link,
+    notas: i.notas,
+    publico: i.publico,
+    comprado: i.comprado,
+  });
+  type Item = ReturnType<typeof decorar>;
+
+  const minha = itens.filter((i) => i.userId === userId).map(decorar);
+
+  const porUsuario = new Map<string, { user: (typeof itens)[number]["user"]; itens: Item[] }>();
+  for (const i of itens) {
+    if (i.userId === userId) continue;
+    const g = porUsuario.get(i.userId) ?? { user: i.user, itens: [] };
+    g.itens.push(decorar(i));
+    porUsuario.set(i.userId, g);
+  }
+  const deOutros = [...porUsuario.values()]
+    .map((g) => ({ ...g, total: somaPrecos(g.itens) }))
+    .sort((a, b) => a.user.name.localeCompare(b.user.name));
+
+  return {
+    minha,
+    totalMinha: somaPrecos(minha),
+    deOutros,
+    pessoas: pessoas.map((p) => ({ id: p.id, nome: p.nome })),
+  };
+}
+
+// Resumo pro card da home.
+export async function getComprasResumo(userId: string) {
+  const [meus, deOutros, ultimo] = await Promise.all([
+    db.wishItem.count({ where: { userId } }),
+    db.wishItem.count({ where: { publico: true, userId: { not: userId } } }),
+    db.wishItem.findFirst({
+      where: { publico: true, userId: { not: userId } },
+      orderBy: { createdAt: "desc" },
+      include: { user: { select: { name: true } } },
+    }),
+  ]);
+  return { meus, deOutros, ultimo: ultimo && { nome: ultimo.nome, por: ultimo.user.name } };
+}

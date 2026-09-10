@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BallotIcon, BookIcon, HouseIcon, MapIcon, WalletIcon } from "./icons";
+import { BagIcon, BallotIcon, BookIcon, HouseIcon, MapIcon, WalletIcon } from "./icons";
 
 const ITEMS = [
   { label: "Início", href: "/", icon: HouseIcon },
   { label: "Roteiro", href: "/roteiro", icon: MapIcon },
   { label: "Financeiro", href: "/financeiro", icon: WalletIcon },
   { label: "Decisões", href: "/decisoes", icon: BallotIcon },
+  { label: "Compras", href: "/compras", icon: BagIcon },
   { label: "Guia", href: "/guia", icon: BookIcon },
 ] as const;
 
@@ -21,7 +22,7 @@ export default function NavPill({ decisoes }: Props) {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-4 mx-4 mt-8 flex items-center justify-between rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(20,22,58,0.88)] px-5 py-[11px] backdrop-blur">
+    <nav className="sticky bottom-4 mx-4 mt-8 flex items-center justify-between rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(20,22,58,0.88)] px-4 py-[11px] backdrop-blur">
       {ITEMS.map(({ label, href, icon: Icon }) => {
         const ativo = href === "/" ? pathname === "/" : pathname.startsWith(href);
         const badge = href === "/decisoes" && decisoes && decisoes.abertas > 0 ? decisoes : null;
@@ -29,7 +30,7 @@ export default function NavPill({ decisoes }: Props) {
           <Link
             key={label}
             href={href}
-            className={`flex min-w-[46px] flex-col items-center gap-[3px] transition-colors duration-200 ${
+            className={`flex min-w-[44px] flex-col items-center gap-[3px] transition-colors duration-200 ${
               ativo ? "text-gold-light" : "text-ink-faint hover:text-ink-muted"
             }`}
           >

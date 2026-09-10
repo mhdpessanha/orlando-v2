@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Countdown from "@/components/Countdown";
 import {
+  BagIcon,
   BallotIcon,
   CalendarIcon,
   ChevronRightIcon,
@@ -13,7 +14,7 @@ import {
 import { getSession } from "@/lib/auth";
 import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
 import { PARQUE_INFO } from "@/lib/parques";
-import { getDecisoesResumo, getHomeData } from "@/lib/queries";
+import { getComprasResumo, getDecisoesResumo, getHomeData } from "@/lib/queries";
 
 function StarField() {
   return (
@@ -72,7 +73,9 @@ export default async function HomePage() {
     getHomeData(),
     getSession(),
   ]);
-  const decisoes = session ? await getDecisoesResumo(session.userId) : null;
+  const [decisoes, compras] = session
+    ? await Promise.all([getDecisoesResumo(session.userId), getComprasResumo(session.userId)])
+    : [null, null];
 
   return (
     <div className="flex flex-col gap-[26px] pt-[26px]">
@@ -132,6 +135,32 @@ export default async function HomePage() {
             </span>
           </div>
           <ChevronRightIcon width={15} height={15} className="shrink-0 text-gold-light" />
+        </Link>
+      )}
+
+      {compras && (
+        <Link
+          href="/compras"
+          className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]"
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-[rgba(95,208,197,0.14)]">
+            <BagIcon width={20} height={20} className="text-nucleo-vm" />
+          </div>
+          <div className="flex min-w-0 grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">
+              {compras.meus + compras.deOutros === 0
+                ? "Lista de compras"
+                : `${compras.meus} na sua lista · ${compras.deOutros} na da família`}
+            </span>
+            <span className="truncate text-[12px] text-ink-muted">
+              {compras.ultimo
+                ? `último da família: ${compras.ultimo.nome}, por ${compras.ultimo.por}`
+                : compras.meus > 0
+                  ? "ninguém mais publicou ainda — mostra a sua"
+                  : "o que você quer trazer de Orlando?"}
+            </span>
+          </div>
+          <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
         </Link>
       )}
 

@@ -6,7 +6,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 
 ## Premissas invioláveis
 
-1. **O site não é ferramenta de planejamento.** Todo conteúdo de planejamento vem da planilha-CMS (Google Sheets) por sync de mão única. **Não construir telas de criação/edição de conteúdo** — nem admin de CRUD. A única escrita dos usuários são as interações (fase 2: votos, palpites, trivia, checklists), que vivem só no SQLite e nunca vão pra planilha.
+1. **O site não é ferramenta de planejamento.** Todo conteúdo de planejamento vem da planilha-CMS (Google Sheets) por sync de mão única. **Não construir telas de criação/edição de conteúdo** — nem admin de CRUD. A única escrita dos usuários são as interações (votos, lista de compras; fase 2: trivia, checklists), que vivem só no SQLite e nunca vão pra planilha.
 2. **Visibilidade financeira por núcleo, aplicada no servidor.** Núcleos: `pessanha` (Murilo+Joana), `gabi` (Gabi+Gustavo+Lucas), `vitor`, `mariana`. Cada usuário só recebe do servidor os dados financeiros do próprio núcleo; `papel=admin` (Murilo) vê tudo. Nunca resolver isso escondendo no client.
 3. **Mobile-first (390px), pt-BR, PWA instalável, tema escuro único** ("noite de fogos" — ver Design). Sem light mode, sem i18n.
 4. **Nada sensível:** sem upload de documentos, sem dados de passaporte/visto. Localizadores de reserva podem aparecer (decisão consciente).
@@ -57,7 +57,7 @@ Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia 
 
 ## Modelo de dados (Prisma, direção)
 
-`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `MagicFact`, `Poll`, `Pendencia`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `Package`/`Payment`/`BudgetHint` (índice em `nucleo`) + `Expense` (só admin); toda query financeira filtra por núcleo do usuário logado no server.
+`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `MagicFact`, `Poll`, `Pendencia`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `Package`/`Payment`/`BudgetHint` (índice em `nucleo`) + `Expense` (só admin); toda query financeira filtra por núcleo do usuário logado no server. `WishItem` (lista de compras, ver tela 11): `userId`, nome, onde, `paraPersonId` (Person da Turma, sem FK), `precoBrasil`, link, notas, `publico`, `comprado`.
 
 ## Design — "noite de fogos"
 
@@ -72,7 +72,7 @@ Tokens (pro `tailwind.config`):
 - Núcleos (avatares): pessanha dourado `#f6c453` · gabi coral `#ff8a7a` · vitor/mariana teal `#5fd0c5`.
 - Tipografia: Fredoka 500–700 (títulos, números do countdown) + Nunito Sans 400–800 (texto). Labels de seção: 11px, bold, letter-spacing largo, uppercase.
 - Ícones: SVG inline stroke (1.8, round), nunca emoji. Estrelinhas/brilhos com moderação (herói da home e cards especiais).
-- Nav (pílula): Início · Roteiro · Financeiro · Decisões · Guia. Sem Bolão. Turma fica no chip "viajantes" da home e no rodapé.
+- Nav (pílula): Início · Roteiro · Financeiro · Decisões · Compras · Guia. Sem Bolão. Turma fica no chip "viajantes" da home e no rodapé.
 - **Cards expansíveis:** `CardExpansivel` (card inteiro abre) e `TituloExpansivel` (só o título abre) em `src/components/Detalhe.tsx` abrem uma folha (bottom sheet, portal no body) com o "card maior". Blocos de conteúdo da folha em `src/components/Campo.tsx`. Botões dentro de um card expansível precisam de `stopPropagation` (CopyButton já faz).
 
 ## Telas do MVP
@@ -88,6 +88,8 @@ Tokens (pro `tailwind.config`):
 8. **Financeiro** — na nav principal (desde 04/09/2026). Núcleo: card do próprio pacote (total, pago, falta), lista de pagamentos, "Quanto levar". Admin: consolidado a receber, card por núcleo (toque abre os pagamentos), seção Gastos (previsto × pago × falta), Levar completo.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".
 10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.
+
+11. **Compras** — `/compras` (desde 10/09/2026): lista de desejos de cada usuário (interação, só SQLite — não é conteúdo da planilha). Item tem nome, onde, "pra quem" (select da Turma; vazio = pra mim), **preço estimado no Brasil** (R$, base pra comparar lá), link, notas, e é **público ou privado por item** (privado só sai do servidor pro dono; nem o admin vê). Tela: formulário de novo item no topo, "Minha lista" (toque abre folha de edição; círculo marca `comprado`, que vira checklist no modo viagem) e "Da família" agrupada por usuário com total estimado. Card na home com contagem e último item publicado. Server actions em `src/app/(app)/compras/actions.ts`, sempre com `userId` da sessão no where.
 
 Modo viagem (home vira "hoje") é fase 3 — deixar o layout da home preparado, não implementar agora.
 
