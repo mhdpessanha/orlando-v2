@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
 import { precisaTroca, trocaLabel } from "@/lib/atracoes";
-import { avatarVariant } from "@/lib/avatars";
+import Avatar from "@/components/Avatar";
+import { avatarDaPessoa } from "@/lib/caricaturas";
 import { aniversarioAno, mesmoDiaMes, parseISO, periodoEstadia, tituloDia } from "@/lib/format";
 import { hexRgba, PARQUE_INFO, PERIODO_INFO } from "@/lib/parques";
 import { getAtracoes, getDiaDetalhe, indicePorNucleo, pessoasDoDia, rankingFamilia } from "@/lib/queries";
@@ -56,7 +57,16 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
             key={p.id}
             className="flex items-center gap-3.5 rounded-card border border-gold/50 bg-[linear-gradient(135deg,rgba(246,196,83,0.2),rgba(246,196,83,0.06))] px-4 py-[15px]"
           >
-            <CakeIcon width={26} height={26} className="shrink-0 text-gold-light" />
+            <div className="relative shrink-0">
+              <Avatar
+                a={avatarDaPessoa(p, indices.get(p.id) ?? 0)}
+                size={46}
+                style={{ boxShadow: "0 0 0 2px #f6c453" }}
+              />
+              <span className="absolute -bottom-1 -right-1 flex h-[20px] w-[20px] items-center justify-center rounded-full bg-gold text-night-deep">
+                <CakeIcon width={12} height={12} strokeWidth={2.2} />
+              </span>
+            </div>
             <div className="flex flex-col gap-0.5">
               <span className="font-display text-[16px] font-semibold text-gold-light">
                 Hoje é aniversário {p.nome === "Joana" ? "da" : "de"} {p.nome}
@@ -118,19 +128,14 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
         <div className="flex items-center gap-3">
           {quemVai.length > 0 && (
             <div className="flex">
-              {quemVai.map((p, i) => {
-                const v = avatarVariant(p.nucleo, indices.get(p.id) ?? 0);
-                return (
-                  <div
-                    key={p.id}
-                    title={p.nome}
-                    className={`flex h-[34px] w-[34px] items-center justify-center rounded-full border-2 border-night-mid text-[11px] font-extrabold ${i > 0 ? "-ml-[9px]" : ""}`}
-                    style={{ background: v.bg, color: v.text }}
-                  >
-                    {p.iniciais ?? p.nome.charAt(0)}
-                  </div>
-                );
-              })}
+              {quemVai.map((p, i) => (
+                <Avatar
+                  key={p.id}
+                  a={avatarDaPessoa(p, indices.get(p.id) ?? 0)}
+                  size={36}
+                  className={`border-2 border-night-mid ${i > 0 ? "-ml-[9px]" : ""}`}
+                />
+              ))}
             </div>
           )}
           <span className="text-[12.5px] font-bold text-ink-muted">

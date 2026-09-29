@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { BagIcon, CheckIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
-import { avatarVariant } from "@/lib/avatars";
+import Avatar from "@/components/Avatar";
 import { moeda } from "@/lib/format";
-import { getCompras } from "@/lib/queries";
+import { getAvatares, getCompras } from "@/lib/queries";
 import ItemCompra from "./ItemCompra";
 import { metaItem, type Item } from "./item";
 import NovoItem from "./NovoItem";
@@ -57,7 +57,10 @@ function ItemDeOutro({ item }: { item: Item }) {
 export default async function ComprasPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  const { minha, totalMinha, deOutros, pessoas } = await getCompras(session.userId);
+  const [{ minha, totalMinha, deOutros, pessoas }, avatarDe] = await Promise.all([
+    getCompras(session.userId),
+    getAvatares(),
+  ]);
   const totalFamilia = deOutros.reduce((acc, g) => acc + g.itens.length, 0);
   const comprados = minha.filter((i) => i.comprado).length;
 
@@ -117,16 +120,10 @@ export default async function ComprasPage() {
           </span>
         ) : (
           deOutros.map(({ user, itens, total }) => {
-            const avatar = avatarVariant(user.nucleo, 0);
             return (
               <div key={user.id} className="flex flex-col gap-2">
                 <div className="flex items-center gap-2.5 pt-1">
-                  <span
-                    className="flex h-[26px] w-[26px] items-center justify-center rounded-full text-[11px] font-extrabold"
-                    style={{ background: avatar.bg, color: avatar.text }}
-                  >
-                    {user.name.charAt(0).toUpperCase()}
-                  </span>
+                  <Avatar a={avatarDe(user.name, user.nucleo)} size={28} />
                   <span className="text-[13.5px] font-extrabold">{user.name}</span>
                   <span className="grow text-right text-[11px] font-bold text-ink-faint">
                     {plural(itens.length, "item", "itens")}

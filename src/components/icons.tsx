@@ -291,3 +291,13 @@ export function ExternalIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function LuggageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="5.5" y="7" width="13" height="13" rx="2" />
+      <path d="M9.5 7V4.5h5V7" />
+      <path d="M9.5 11v5M14.5 11v5" />
+    </svg>
+  );
+}

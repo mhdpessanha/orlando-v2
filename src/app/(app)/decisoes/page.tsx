@@ -1,24 +1,29 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import Avatar from "@/components/Avatar";
 import { Texto } from "@/components/Campo";
 import { TituloExpansivel } from "@/components/Detalhe";
 import { CheckIcon } from "@/components/icons";
 import { chipPrazo, diaMes } from "@/lib/format";
-import { getDecisoes } from "@/lib/queries";
+import type { AvatarInfo } from "@/lib/caricaturas";
+import { getAvatares, getDecisoes } from "@/lib/queries";
 import { votarAction } from "./actions";
 
 export const metadata = { title: "Decisões · Orlando 2027" };
 
 type Decisao = Awaited<ReturnType<typeof getDecisoes>>[number];
+type AvatarDe = (nome: string) => AvatarInfo;
 
 function BarraResultado({
   votantes,
   total,
   destaque,
+  avatarDe,
 }: {
   votantes: string[];
   total: number;
   destaque: boolean;
+  avatarDe: AvatarDe;
 }) {
   const pct = total > 0 ? Math.round((votantes.length / total) * 100) : 0;
   return (
@@ -29,9 +34,23 @@ function BarraResultado({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[10.5px] text-ink-faint">
-        {votantes.length === 0 ? "ninguém ainda" : votantes.join(", ")}
-      </span>
+      <div className="flex items-center gap-2">
+        {votantes.length > 0 && (
+          <div className="flex">
+            {votantes.map((n, i) => (
+              <Avatar
+                key={n}
+                a={avatarDe(n)}
+                size={20}
+                className={`border-[1.5px] border-night-mid ${i > 0 ? "-ml-[5px]" : ""}`}
+              />
+            ))}
+          </div>
+        )}
+        <span className="text-[10.5px] text-ink-faint">
+          {votantes.length === 0 ? "ninguém ainda" : votantes.join(", ")}
+        </span>
+      </div>
     </div>
   );
 }
@@ -82,7 +101,7 @@ function DetalheDecisao({ d }: { d: Decisao }) {
   );
 }
 
-function CardDecisao({ d }: { d: Decisao }) {
+function CardDecisao({ d, avatarDe }: { d: Decisao; avatarDe: AvatarDe }) {
   const { poll, aberta, meuVoto, porOpcao, totalVotos, faltam } = d;
   const mostrarResultado = meuVoto !== null || !aberta;
   const maisVotada = Math.max(0, ...porOpcao.map((o) => o.votantes.length));
@@ -143,6 +162,7 @@ function CardDecisao({ d }: { d: Decisao }) {
               </div>
               {mostrarResultado && (
                 <BarraResultado
+                  avatarDe={avatarDe}
                   votantes={votantes}
                   total={totalVotos}
                   destaque={minha || vencedora}
@@ -191,7 +211,7 @@ function CardDecisao({ d }: { d: Decisao }) {
 export default async function DecisoesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
-  const decisoes = await getDecisoes(session.userId);
+  const [decisoes, avatarDe] = await Promise.all([getDecisoes(session.userId), getAvatares()]);
 
   const abertas = decisoes.filter((d) => d.aberta);
   const fechadas = decisoes.filter((d) => !d.aberta);
@@ -213,7 +233,7 @@ export default async function DecisoesPage() {
             Em aberto
           </span>
           {abertas.map((d) => (
-            <CardDecisao key={d.poll.id} d={d} />
+            <CardDecisao key={d.poll.id} d={d} avatarDe={avatarDe} />
           ))}
         </section>
       )}
@@ -224,7 +244,7 @@ export default async function DecisoesPage() {
             Decididas
           </span>
           {fechadas.map((d) => (
-            <CardDecisao key={d.poll.id} d={d} />
+            <CardDecisao key={d.poll.id} d={d} avatarDe={avatarDe} />
           ))}
         </section>
       )}

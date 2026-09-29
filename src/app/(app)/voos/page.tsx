@@ -1,9 +1,10 @@
 import { Campo, Campos, Codigo, Texto } from "@/components/Campo";
 import CopyButton from "@/components/CopyButton";
 import { CardExpansivel } from "@/components/Detalhe";
-import { PlaneIcon } from "@/components/icons";
+import { LuggageIcon, PlaneIcon } from "@/components/icons";
+import { getSession } from "@/lib/auth";
 import { diaMes, tituloDia } from "@/lib/format";
-import { getVoosPorGrupo, GRUPO_VOO_LABEL } from "@/lib/queries";
+import { getVoosPorGrupo, GRUPO_DO_NUCLEO, GRUPO_VOO_LABEL } from "@/lib/queries";
 
 export const metadata = { title: "Voos · Orlando 2027" };
 
@@ -16,6 +17,9 @@ const GRUPO_COR: Record<string, string> = {
 type Voo = Awaited<ReturnType<typeof getVoosPorGrupo>>[number]["voos"][number];
 
 const hora = (h: string) => h.replace(":", "h");
+
+// "Não inclusa — comprar": bagagem que ainda precisa ser comprada ganha destaque
+const bagagemPendente = (b: string) => /n[aã]o inclu|comprar/i.test(b);
 
 function StatusChip({ status }: { status: string | null }) {
   if (!status) return null;
@@ -108,7 +112,10 @@ function DetalheVoo({ v }: { v: Voo }) {
 }
 
 export default async function VoosPage() {
-  const grupos = await getVoosPorGrupo();
+  const [todos, session] = await Promise.all([getVoosPorGrupo(), getSession()]);
+  // o voo de quem está logado vem primeiro
+  const meuGrupo = session ? GRUPO_DO_NUCLEO[session.user.nucleo] : undefined;
+  const grupos = [...todos].sort((a, b) => Number(b.grupo === meuGrupo) - Number(a.grupo === meuGrupo));
 
   return (
     <div className="flex flex-col gap-[22px] pt-[26px]">
@@ -128,8 +135,12 @@ export default async function VoosPage() {
               className="h-[3px] w-4 rounded-sm"
               style={{ background: GRUPO_COR[grupo] ?? "#b7a9e8" }}
             />
-            <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
-              {GRUPO_VOO_LABEL[grupo] ?? grupo}
+            <span
+              className={`text-[11px] font-extrabold uppercase tracking-[2.5px] ${
+                grupo === meuGrupo ? "text-gold-light" : "text-ink-faint"
+              }`}
+            >
+              {grupo === meuGrupo ? `Seus voos · ${GRUPO_VOO_LABEL[grupo] ?? grupo}` : (GRUPO_VOO_LABEL[grupo] ?? grupo)}
             </span>
           </div>
 
@@ -160,6 +171,17 @@ export default async function VoosPage() {
                   .filter(Boolean)
                   .join(" · ") || "detalhes ainda na planilha"}
               </span>
+
+              {v.bagagem && (
+                <span
+                  className={`flex items-center gap-1.5 text-[12px] font-bold ${
+                    bagagemPendente(v.bagagem) ? "text-nucleo-gabi" : "text-ink-soft"
+                  }`}
+                >
+                  <LuggageIcon width={14} height={14} className="shrink-0" />
+                  bagagem: {v.bagagem}
+                </span>
+              )}
 
               {v.reserva && (
                 <Codigo

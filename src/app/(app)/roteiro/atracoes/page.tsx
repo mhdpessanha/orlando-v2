@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import CopyButton from "@/components/CopyButton";
 import { CheckIcon, ChevronRightIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
@@ -166,21 +167,17 @@ function CardFamilia({
             <span className="text-[11.5px] text-ink-faint">sem nota ainda</span>
           )}
           {votos.length > 0 && (
-            <div className="flex flex-wrap gap-[5px]">
+            <div className="flex flex-wrap gap-[7px] pt-0.5">
               {votos.map((v) => (
-                <span
+                <Avatar
                   key={v.id}
-                  title={`${v.nome}: ${notaInfo(v.nota).label}`}
-                  className="flex h-[19px] min-w-[19px] items-center justify-center rounded-full px-1 text-[8.5px] font-extrabold"
+                  a={{ ...v.a, nome: `${v.nome}: ${notaInfo(v.nota).label}` }}
+                  size={22}
                   style={{
-                    background: v.avatar.bg,
-                    color: v.avatar.text,
                     boxShadow: `0 0 0 1.5px #101641, 0 0 0 3px ${notaInfo(v.nota).cor}`,
                     opacity: v.nota === 0 ? 0.55 : 1,
                   }}
-                >
-                  {v.iniciais}
-                </span>
+                />
               ))}
             </div>
           )}

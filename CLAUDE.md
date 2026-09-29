@@ -72,9 +72,10 @@ Tokens (pro `tailwind.config`):
 - Dourado (marca): `#f6c453`, highlight `#ffd97a` (countdown, item ativo da nav, chips de destaque).
 - Parques: MK `#8f7bff` · EPCOT `#57c7d8` · AK `#5fbf7a` · HS `#ff8f66` (demais parques: derivar na mesma família de saturação).
 - Núcleos (avatares): pessanha dourado `#f6c453` · gabi coral `#ff8a7a` · vitor/mariana teal `#5fd0c5`.
+- **Avatares = caricaturas** (desde 29/09/2026): cada pessoa da Turma tem caricatura em `data/avatars/<primeiro-nome>.webp` (rosto, recorte quadrado 384 px) e `<primeiro-nome>-busto.webp` (busto, Turma). **Fora do git** (o repo no GitHub é público e tem as crianças); servidas só pra logado por `/api/avatar/[chave]`. Gerar/trocar com `scripts/caricaturas.py <pasta com os PNGs>` (Pillow; originais em ~/Desktop/Removed BG). Sempre usar `<Avatar>` (`src/components/Avatar.tsx`): caricatura sobre a cor do núcleo, ou a inicial se não houver arquivo. Usuário → pessoa casa pelo nome (`getAvatares()` em queries).
 - Tipografia: Fredoka 500–700 (títulos, números do countdown) + Nunito Sans 400–800 (texto). Labels de seção: 11px, bold, letter-spacing largo, uppercase.
 - Ícones: SVG inline stroke (1.8, round), nunca emoji. Estrelinhas/brilhos com moderação (herói da home e cards especiais).
-- Nav (pílula): Início · Roteiro · Financeiro · Decisões · Compras · Guia. Sem Bolão. Turma fica no chip "viajantes" da home e no rodapé.
+- Nav (pílula): Início · Roteiro · Financeiro · Decisões · Compras · Guia. Sem Bolão. Turma fica na fileira de rostos da home e no rodapé; Voos e Hospedagens nos atalhos do topo do Guia (e no chip do voo / "casas" da home).
 - **Cards expansíveis:** `CardExpansivel` (card inteiro abre) e `TituloExpansivel` (só o título abre) em `src/components/Detalhe.tsx` abrem uma folha (bottom sheet, portal no body) com o "card maior". Blocos de conteúdo da folha em `src/components/Campo.tsx`. Botões dentro de um card expansível precisam de `stopPropagation` (CopyButton já faz).
 
 ## Telas do MVP
@@ -82,10 +83,10 @@ Tokens (pro `tailwind.config`):
 1. **Login** — usuário + senha, erro amigável.
 2. **Início** — countdown grande até 07/01/2027 21h05 (tick por segundo), chips de stats (9 viajantes · 12 dias de parque · 3 casas), card "Magia do dia", próximos marcos (da aba Marcos, ordenados por data, os sem data no fim; marcos com status feito/concluído/ok não aparecem), prévia dos 3 próximos dias do roteiro.
 3. **Roteiro** — lista dos 18 dias (badge de parque colorido, quem vai, hospedagem da noite); detalhe do dia com timeline da Agenda (dot por período), banner especial em 11/01 (aniversário da Joana).
-4. **Voos** — por grupo (família emitida / Gabi e V&M pendentes), localizador em destaque com copiar.
+4. **Voos** — por grupo, com o grupo de quem está logado primeiro ("Seus voos"; núcleo → grupo em `GRUPO_DO_NUCLEO`), localizador em destaque com copiar e bagagem no card ("não inclusa" em coral). O chip da home mostra a ida do grupo de quem está logado (`getIdaDoGrupo` junta conexões).
 5. **Hospedagens** — linha do tempo das 4 estadias.
-6. **Turma** — cards por núcleo, badge de aniversário da Joana.
-7. **Guia** — seções da aba Guia.
+6. **Turma** — cards por núcleo com o busto da caricatura saindo do círculo na cor do núcleo, badge de aniversário da Joana.
+7. **Guia** — atalhos "Na mão durante a viagem" (Voos com a minha ida, Hospedagens) + seções da aba Guia.
 8b. **Pendências** — `/pendencias`, só admin (ver aba Pendencias acima).
 8. **Financeiro** — na nav principal (desde 04/09/2026). Núcleo: card do próprio pacote (total, pago, falta), lista de pagamentos, "Quanto levar". Admin: consolidado a receber, card por núcleo (toque abre os pagamentos), seção Gastos (previsto × pago × falta), Levar completo.
 9. **PWA** — manifest + ícones + installable; título "Orlando 2027".

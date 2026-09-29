@@ -1,5 +1,7 @@
 import { SparkleIcon } from "@/components/icons";
+import Avatar from "@/components/Avatar";
 import { avatarVariant } from "@/lib/avatars";
+import { avatarDaPessoa, caricatura } from "@/lib/caricaturas";
 import { aniversarioAno, aniversarioDdmm, aniversarioMD } from "@/lib/format";
 import { getPessoas, indicePorNucleo, TRIP_FIM, TRIP_INICIO } from "@/lib/queries";
 import type { Person } from "@prisma/client";
@@ -50,6 +52,7 @@ export default async function TurmaPage() {
             <div className="grid grid-cols-2 gap-3">
               {membros.map((p) => {
                 const v = avatarVariant(p.nucleo, indices.get(p.id) ?? 0);
+                const busto = caricatura(p.nome, "busto");
                 const aniversariante = fazAniversarioNaViagem(p);
                 const ano = p.aniversario ? aniversarioAno(p.aniversario) : null;
                 const idade = ano ? 2027 - ano : null;
@@ -60,16 +63,30 @@ export default async function TurmaPage() {
                       aniversariante ? "border-gold/50" : "border-stroke"
                     } bg-surface`}
                   >
-                    <div
-                      className="flex h-[54px] w-[54px] items-center justify-center rounded-full text-[19px] font-extrabold"
-                      style={{
-                        background: v.bg,
-                        color: v.text,
-                        boxShadow: aniversariante ? "0 0 0 2px #f6c453" : undefined,
-                      }}
-                    >
-                      {p.iniciais ?? p.nome.charAt(0)}
-                    </div>
+                    {busto ? (
+                      // adesivo: o busto sai por cima do círculo e a base segue a curva dele
+                      <div className="relative h-[100px] w-[84px] overflow-hidden rounded-b-full">
+                        <span
+                          className="absolute bottom-0 left-0 h-[84px] w-[84px] rounded-full"
+                          style={{
+                            background: v.bg,
+                            boxShadow: aniversariante ? "inset 0 0 0 2px #f6c453" : undefined,
+                          }}
+                        />
+                        <img
+                          src={busto}
+                          alt={p.nome}
+                          decoding="async"
+                          className="absolute bottom-0 left-1/2 h-[100px] w-auto max-w-none -translate-x-1/2"
+                        />
+                      </div>
+                    ) : (
+                      <Avatar
+                        a={avatarDaPessoa(p, indices.get(p.id) ?? 0)}
+                        size={64}
+                        style={{ boxShadow: aniversariante ? "0 0 0 2px #f6c453" : undefined }}
+                      />
+                    )}
                     <span className="text-[14px] font-extrabold">{p.nome}</span>
                     {aniversariante && p.aniversario ? (
                       <span className="rounded-full border border-gold/45 bg-gold/[0.14] px-2.5 py-[3px] text-center text-[10px] font-extrabold text-gold-light">

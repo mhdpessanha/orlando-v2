@@ -12,10 +12,21 @@ import {
   TicketIcon,
   UsersIcon,
 } from "@/components/icons";
+import Avatar from "@/components/Avatar";
 import { getSession } from "@/lib/auth";
+import { avatarDaPessoa } from "@/lib/caricaturas";
 import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
 import { PARQUE_INFO } from "@/lib/parques";
-import { getAtracoesResumo, getComprasResumo, getDecisoesResumo, getHomeData } from "@/lib/queries";
+import {
+  getAtracoesResumo,
+  getComprasResumo,
+  getDecisoesResumo,
+  getHomeData,
+  getIdaDoGrupo,
+  getPessoas,
+  GRUPO_DO_NUCLEO,
+  indicePorNucleo,
+} from "@/lib/queries";
 
 function StarField() {
   return (
@@ -74,14 +85,18 @@ export default async function HomePage() {
     getHomeData(),
     getSession(),
   ]);
-  const [decisoes, compras, atracoes] = session
+  const [decisoes, compras, atracoes, ida] = session
     ? await Promise.all([
         getDecisoesResumo(session.userId),
         getComprasResumo(session.userId),
         getAtracoesResumo(session.userId),
+        getIdaDoGrupo(GRUPO_DO_NUCLEO[session.user.nucleo] ?? "familia"),
       ])
-    : [null, null, null];
+    : [null, null, null, null];
   const atracoesFaltam = atracoes ? atracoes.total - atracoes.minhas : 0;
+  const pessoas = await getPessoas();
+  const indices = indicePorNucleo(pessoas);
+  const turma = pessoas.map((p) => avatarDaPessoa(p, indices.get(p.id) ?? 0));
 
   return (
     <div className="flex flex-col gap-[26px] pt-[26px]">
@@ -95,27 +110,57 @@ export default async function HomePage() {
             className="mt-2.5 flex items-center gap-2 rounded-full border border-gold/40 bg-gold/[0.08] px-4 py-[9px] text-[12px] font-bold text-gold-light"
           >
             <PlaneIcon width={15} height={15} />
-            <span>GIG → MCO · 7 de janeiro · 21h05</span>
+            <span>
+              {ida
+                ? [
+                    [ida.origem, ida.destino].filter(Boolean).join(" → "),
+                    diaMes(ida.data),
+                    ida.saida?.replace(":", "h"),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : "GIG → MCO · 7 de janeiro · 21h05"}
+            </span>
           </Link>
         </div>
       </section>
 
-      <section className="flex justify-center gap-2">
-        <StatChip
-          href="/turma"
-          icon={<UsersIcon width={14} height={14} className="text-lavanda" />}
-          label={`${chips.viajantes} viajantes`}
-        />
-        <StatChip
-          href="/roteiro"
-          icon={<TicketIcon width={14} height={14} className="text-lavanda" />}
-          label={`${chips.diasParque} dias de parque`}
-        />
-        <StatChip
-          href="/hospedagens"
-          icon={<HouseIcon width={14} height={14} className="text-lavanda" />}
-          label={`${chips.casas} casas`}
-        />
+      <section className="flex flex-col items-center gap-3.5">
+        {turma.length > 0 ? (
+          <Link href="/turma" className="flex flex-col items-center gap-1.5">
+            <div className="flex">
+              {turma.map((a, i) => (
+                <Avatar
+                  key={a.nome}
+                  a={a}
+                  size={34}
+                  className={`border-2 border-night-mid ${i > 0 ? "-ml-[9px]" : ""}`}
+                />
+              ))}
+            </div>
+            <span className="text-[11.5px] font-bold text-ink-muted">
+              {chips.viajantes} viajantes · a turma toda
+            </span>
+          </Link>
+        ) : (
+          <StatChip
+            href="/turma"
+            icon={<UsersIcon width={14} height={14} className="text-lavanda" />}
+            label={`${chips.viajantes} viajantes`}
+          />
+        )}
+        <div className="flex justify-center gap-2">
+          <StatChip
+            href="/roteiro"
+            icon={<TicketIcon width={14} height={14} className="text-lavanda" />}
+            label={`${chips.diasParque} dias de parque`}
+          />
+          <StatChip
+            href="/hospedagens"
+            icon={<HouseIcon width={14} height={14} className="text-lavanda" />}
+            label={`${chips.casas} casas`}
+          />
+        </div>
       </section>
 
       {decisoes && (

@@ -1,8 +1,9 @@
 import type { Attraction, Person } from "@prisma/client";
 import type { Crianca } from "./atracoes";
 import { avatarVariant } from "./avatars";
+import { avatarDaPessoa, caricatura, type AvatarInfo } from "./caricaturas";
 import { db } from "./db";
-import { hojeBrasilia, moeda } from "./format";
+import { hojeBrasilia, moeda, parseISO } from "./format";
 import { magiaOrdemDoDia } from "./magia";
 
 export const TRIP_INICIO = "2027-01-07";
@@ -117,6 +118,32 @@ export const GRUPO_VOO_LABEL: Record<string, string> = {
   gabi: "Família da Gabi",
   vm: "Vitor & Mariana",
 };
+
+// Grupo da aba Voos de cada núcleo (quem está logado vê o próprio voo primeiro)
+export const GRUPO_DO_NUCLEO: Record<string, string> = {
+  pessanha: "familia",
+  gabi: "gabi",
+  vitor: "vm",
+  mariana: "vm",
+};
+
+// Ida do grupo: 1º trecho até o destino final, seguindo conexões que saem em
+// até 1 dia (GIG → ATL + ATL → MCO vira GIG → MCO).
+export async function getIdaDoGrupo(grupo: string) {
+  const voos = await db.flight.findMany({
+    where: { grupo, data: { not: null } },
+    orderBy: [{ data: "asc" }, { saida: "asc" }, { id: "asc" }],
+  });
+  const primeiro = voos[0];
+  if (!primeiro?.data) return null;
+  const limite = parseISO(primeiro.data).getTime() + 86_400_000;
+  let destino = primeiro.destino;
+  for (const v of voos.slice(1)) {
+    if (!v.data || parseISO(v.data).getTime() > limite) break;
+    if (v.origem && v.origem === destino) destino = v.destino;
+  }
+  return { origem: primeiro.origem, destino, data: primeiro.data, saida: primeiro.saida };
+}
 
 export async function getVoosPorGrupo() {
   const voos = await db.flight.findMany({ orderBy: [{ data: "asc" }, { id: "asc" }] });
@@ -449,6 +476,19 @@ function normNome(s: string): string {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
+// Usuário que não casa com ninguém da Turma: inicial na cor do núcleo
+function avatarSemPessoa(nome: string, nucleo: string): AvatarInfo {
+  return { nome, iniciais: nome.charAt(0).toUpperCase(), ...avatarVariant(nucleo, 0), foto: caricatura(nome) };
+}
+
+// Avatar (caricatura ou inicial) de qualquer um pelo nome — pessoa da Turma ou usuário.
+export async function getAvatares() {
+  const pessoas = await getPessoas();
+  const indices = indicePorNucleo(pessoas);
+  const porNome = new Map(pessoas.map((p) => [normNome(p.nome), avatarDaPessoa(p, indices.get(p.id) ?? 0)]));
+  return (nome: string, nucleo = ""): AvatarInfo => porNome.get(normNome(nome)) ?? avatarSemPessoa(nome, nucleo);
+}
+
 // Os 6 logins com o avatar da pessoa correspondente na Turma (casando pelo nome).
 async function getVotantes() {
   const [usuarios, pessoas] = await Promise.all([
@@ -463,8 +503,7 @@ async function getVotantes() {
       return {
         id: u.id,
         nome: u.name,
-        iniciais: p?.iniciais ?? u.name.charAt(0).toUpperCase(),
-        avatar: avatarVariant(p?.nucleo ?? u.nucleo, p ? (indices.get(p.id) ?? 0) : 0),
+        a: p ? avatarDaPessoa(p, indices.get(p.id) ?? 0) : avatarSemPessoa(u.name, u.nucleo),
         pos: pos >= 0 ? pos : 99,
       };
     })
