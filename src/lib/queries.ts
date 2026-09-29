@@ -67,7 +67,7 @@ export async function getDiaDetalhe(id: string) {
 
   const [agenda, todosDias, pessoas] = await Promise.all([
     db.agendaItem.findMany({ where: { roteiroId: id } }),
-    db.day.findMany({ orderBy: { data: "asc" }, select: { id: true } }),
+    db.day.findMany({ orderBy: { data: "asc" }, select: { id: true, data: true, titulo: true } }),
     getPessoas(),
   ]);
   agenda.sort(
@@ -86,6 +86,9 @@ export async function getDiaDetalhe(id: string) {
     estadias,
     numeroDoDia: todosDias.findIndex((d) => d.id === id) + 1,
     totalDias: todosDias.length,
+    // vizinhos na ordem das datas (setas de dia anterior/próximo)
+    anterior: todosDias[todosDias.findIndex((d) => d.id === id) - 1] ?? null,
+    proximo: todosDias[todosDias.findIndex((d) => d.id === id) + 1] ?? null,
     pessoas,
   };
 }

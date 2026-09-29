@@ -45,6 +45,14 @@ type Fetcher = (aba: string) => Promise<unknown[][]>;
 function validar<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, rows: RawRows): T[] {
   const out: T[] = [];
   const erros: string[] = [];
+  // id repetido faria uma linha sobrescrever a outra em silêncio (upsert por id)
+  const vistos = new Map<string, number>();
+  for (const { obj, linha } of rows) {
+    const anterior = vistos.get(obj.id);
+    if (anterior !== undefined) erros.push(`linha ${linha} — id ${obj.id} repetido (já usado na linha ${anterior})`);
+    vistos.set(obj.id, linha);
+  }
+  if (erros.length > 0) throw new TabError(erros.slice(0, 5).join(" · "));
   for (const { obj, linha } of rows) {
     const r = schema.safeParse(obj);
     if (r.success) {

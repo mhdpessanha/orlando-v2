@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Avatar from "@/components/Avatar";
 import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
 import { precisaTroca, trocaLabel } from "@/lib/atracoes";
-import Avatar from "@/components/Avatar";
 import { avatarDaPessoa } from "@/lib/caricaturas";
-import { aniversarioAno, mesmoDiaMes, parseISO, periodoEstadia, tituloDia } from "@/lib/format";
+import {
+  aniversarioAno,
+  ddmm,
+  diaSemanaCurto,
+  mesmoDiaMes,
+  parseISO,
+  periodoEstadia,
+  tituloDia,
+} from "@/lib/format";
 import { hexRgba, PARQUE_INFO, PERIODO_INFO } from "@/lib/parques";
 import { getAtracoes, getDiaDetalhe, indicePorNucleo, pessoasDoDia, rankingFamilia } from "@/lib/queries";
 
@@ -15,7 +23,7 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const detalhe = await getDiaDetalhe(id);
   if (!detalhe) notFound();
-  const { dia, agenda, estadias, numeroDoDia, pessoas } = detalhe;
+  const { dia, agenda, estadias, numeroDoDia, totalDias, anterior, proximo, pessoas } = detalhe;
   const session = await getSession();
   const atracoes =
     dia.parqueCode && session ? await getAtracoes(session.userId, dia.parqueCode) : null;
@@ -36,15 +44,23 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
   return (
     <div className="flex flex-col gap-[22px] pt-[26px]">
       <div className="flex flex-col gap-2.5">
-        <Link href="/roteiro" className="flex items-center gap-2.5 text-ink-faint">
-          <ChevronLeftIcon width={20} height={20} strokeWidth={2} />
-          <span className="text-[12px] font-extrabold tracking-[2px]">ROTEIRO</span>
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link href="/roteiro" className="flex items-center gap-2.5 text-ink-faint">
+            <ChevronLeftIcon width={20} height={20} strokeWidth={2} />
+            <span className="text-[12px] font-extrabold tracking-[2px]">ROTEIRO</span>
+          </Link>
+          <div className="flex gap-2">
+            <SetaDia dia={anterior} direcao="anterior" />
+            <SetaDia dia={proximo} direcao="proximo" />
+          </div>
+        </div>
         <div className="flex items-end justify-between">
           <h1 className="font-display text-[27px] font-semibold leading-[1.1]">
             {tituloDia(dia.data)}
           </h1>
-          <span className="pb-1 text-[12px] font-bold text-ink-faint">dia {numeroDoDia}</span>
+          <span className="pb-1 text-[12px] font-bold text-ink-faint">
+            dia {numeroDoDia} de {totalDias}
+          </span>
         </div>
       </div>
 
@@ -271,6 +287,58 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
       )}
 
       {dia.notas && <p className="text-[12.5px] leading-relaxed text-ink-muted">{dia.notas}</p>}
+
+      {(anterior || proximo) && (
+        <nav className="grid grid-cols-2 gap-3">
+          {anterior ? <CardVizinho dia={anterior} direcao="anterior" /> : <span />}
+          {proximo ? <CardVizinho dia={proximo} direcao="proximo" /> : <span />}
+        </nav>
+      )}
     </div>
+  );
+}
+
+type Vizinho = { id: string; data: string; titulo: string } | null;
+
+// Setas do topo: dia anterior / próximo (apagada nas pontas da viagem)
+function SetaDia({ dia, direcao }: { dia: Vizinho; direcao: "anterior" | "proximo" }) {
+  const Icon = direcao === "anterior" ? ChevronLeftIcon : ChevronRightIcon;
+  const label = direcao === "anterior" ? "Dia anterior" : "Próximo dia";
+  const estilo = "flex h-9 w-9 items-center justify-center rounded-full border border-stroke bg-white/[0.06]";
+  if (!dia) {
+    return (
+      <span aria-hidden className={`${estilo} text-ink-faint opacity-35`}>
+        <Icon width={17} height={17} strokeWidth={2} />
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={`/roteiro/${dia.id}`}
+      aria-label={`${label}: ${dia.titulo}`}
+      className={`${estilo} text-ink-soft active:scale-95`}
+    >
+      <Icon width={17} height={17} strokeWidth={2} />
+    </Link>
+  );
+}
+
+// No fim da página: pra onde ir depois de ler o dia
+function CardVizinho({ dia, direcao }: { dia: NonNullable<Vizinho>; direcao: "anterior" | "proximo" }) {
+  const proximo = direcao === "proximo";
+  return (
+    <Link
+      href={`/roteiro/${dia.id}`}
+      className={`flex min-w-0 flex-col gap-0.5 rounded-card border border-stroke bg-surface px-3.5 py-3 ${
+        proximo ? "items-end text-right" : ""
+      }`}
+    >
+      <span className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[2px] text-ink-faint">
+        {!proximo && <ChevronLeftIcon width={12} height={12} strokeWidth={2.4} />}
+        {diaSemanaCurto(dia.data)} {ddmm(dia.data)}
+        {proximo && <ChevronRightIcon width={12} height={12} strokeWidth={2.4} />}
+      </span>
+      <span className="w-full truncate text-[13px] font-extrabold">{dia.titulo}</span>
+    </Link>
   );
 }

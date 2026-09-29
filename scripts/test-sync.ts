@@ -147,6 +147,7 @@ async function main() {
     ["v01", "grupo_invalido", "", "", "", "", "", "", "", "", "", ""],
   ];
   quebrada.Agenda = FIXTURE_OK.Agenda.slice(0, 3); // some a03
+  quebrada.Marcos = [...FIXTURE_OK.Marcos, ["m01", "", "", "Marco com id repetido", "", "", ""]];
   quebrada.Atracoes = [
     FIXTURE_OK.Atracoes[0],
     ["mk-tron", "XYZ", "1", "TRON", "", "1,22 m", "", "não é link"],
@@ -160,6 +161,9 @@ async function main() {
   assert.equal(porAba.Voos.status, "erro");
   assert.match(porAba.Voos.erro!, /linha 2/);
   assert.equal(porAba.Agenda.status, "ok");
+  assert.equal(porAba.Marcos.status, "erro");
+  assert.match(porAba.Marcos.erro!, /id m01 repetido \(já usado na linha 2\)/);
+  assert.equal(await db.milestone.count(), 2, "Marcos com id repetido → dados antigos intactos");
   assert.equal(porAba.Atracoes.status, "erro");
   assert.match(porAba.Atracoes.erro!, /parque_code/);
   assert.equal(await db.attraction.count(), 2, "Atracoes falhou → dados antigos intactos");
