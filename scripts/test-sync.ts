@@ -31,9 +31,9 @@ const FIXTURE_OK: Fixture = {
     ["h01", "Kidani Village", "resort disney", "2027-01-08", "2027-01-12", "todos", "confirmado", "K-9981", ""],
   ],
   Turma: [
-    ["id", "nome", "nucleo", "tipo", "papel", "iniciais", "aniversario", "tagline"],
-    ["p01", "Murilo", "pessanha", "adulto", "admin", "MP", "1988-05-02", "o planejador"],
-    ["p02", "Olívia", "pessanha", "crianca", "perfil", "OP", "15/03", "primeira viagem"],
+    ["id", "nome", "nucleo", "tipo", "papel", "iniciais", "aniversario", "tagline", "altura_cm"],
+    ["p01", "Murilo", "pessanha", "adulto", "admin", "MP", "1988-05-02", "o planejador", ""],
+    ["p02", "Olívia", "pessanha", "crianca", "perfil", "OP", "15/03", "primeira viagem", "104 cm"],
   ],
   Marcos: [
     ["id", "data", "hora", "titulo", "categoria", "status", "descricao"],
@@ -68,6 +68,13 @@ const FIXTURE_OK: Fixture = {
     ["mg1", "1", "castelo", "O Castelo da Cinderela tem 57 metros e nenhum tijolo."],
     ["mg2", "2", "epcot", "A esfera do EPCOT tem 11.324 painéis de alumínio."],
   ],
+  // só as colunas obrigatórias (as opcionais ainda não existem na aba)
+  Atracoes: [
+    ["id", "parque_code", "ordem", "nome", "tipo", "altura_min_cm", "descricao", "video_url"],
+    ["mk-tron", "mk", "1", "TRON Lightcycle / Run", "Montanha-russa", "122", "moto no mundo de TRON", "https://www.youtube.com/watch?v=abcdefghijk"],
+    ["mk-pirates", "MK", "2", "Pirates of the Caribbean", "Dark ride", "XX", "", ""],
+    ["mk-reservada", "", "", "", "", "", "", ""],
+  ],
   Decisoes: [
     ["id", "ordem", "pergunta", "detalhe", "opcoes", "status", "encerra_em"],
     ["d01", "1", "Dia 17: qual parque?", "", "IOA|Epic Universe", "", "2026-12-01"],
@@ -87,7 +94,7 @@ async function main() {
   // ── 1º sync: tudo válido ──
   const r1 = await runSync("teste-ok", fetcherDe(FIXTURE_OK));
   assert.equal(r1.ok, true, `sync 1 deveria passar: ${JSON.stringify(r1.abas)}`);
-  assert.equal(r1.abas.length, 14);
+  assert.equal(r1.abas.length, 15);
   assert.equal(await db.poll.count(), 2);
   // aba opcional ausente na fixture (Pendencias) não é erro
   assert.equal(r1.abas.find((a) => a.aba === "Pendencias")?.status, "ausente");
@@ -116,6 +123,17 @@ async function main() {
   assert.equal(v01.chegada, "05:51 (+1)", "chegada com marcador (+1) aceita");
   const p02 = await db.person.findUniqueOrThrow({ where: { id: "p02" } });
   assert.equal(p02.aniversario, "15/03", "aniversário DD/MM aceito");
+  assert.equal(p02.alturaCm, 104, "altura_cm aceita '104 cm'");
+
+  assert.equal(await db.attraction.count(), 2, "linha só com id é pulada");
+  const tron = await db.attraction.findUniqueOrThrow({ where: { id: "mk-tron" } });
+  assert.equal(tron.parqueCode, "MK", "parque_code aceita minúscula");
+  assert.equal(tron.tipo, "montanha-russa", "tipo normalizado");
+  assert.equal(tron.alturaMinCm, 122);
+  assert.equal(tron.fotoUrl, null, "coluna opcional ausente → null");
+  const pirates = await db.attraction.findUniqueOrThrow({ where: { id: "mk-pirates" } });
+  assert.equal(pirates.tipo, "dark-ride");
+  assert.equal(pirates.alturaMinCm, null, "XX em altura → sem altura mínima");
 
   // ── 2º sync: Roteiro quebrado (cabeçalho sumiu), Voos com linha inválida,
   //    Agenda com linha removida ──
@@ -129,6 +147,10 @@ async function main() {
     ["v01", "grupo_invalido", "", "", "", "", "", "", "", "", "", ""],
   ];
   quebrada.Agenda = FIXTURE_OK.Agenda.slice(0, 3); // some a03
+  quebrada.Atracoes = [
+    FIXTURE_OK.Atracoes[0],
+    ["mk-tron", "XYZ", "1", "TRON", "", "1,22 m", "", "não é link"],
+  ];
 
   const r2 = await runSync("teste-falhas", fetcherDe(quebrada));
   assert.equal(r2.ok, false);
@@ -138,6 +160,9 @@ async function main() {
   assert.equal(porAba.Voos.status, "erro");
   assert.match(porAba.Voos.erro!, /linha 2/);
   assert.equal(porAba.Agenda.status, "ok");
+  assert.equal(porAba.Atracoes.status, "erro");
+  assert.match(porAba.Atracoes.erro!, /parque_code/);
+  assert.equal(await db.attraction.count(), 2, "Atracoes falhou → dados antigos intactos");
 
   // aba que falhou mantém os dados anteriores
   assert.equal(await db.day.count(), 3, "Roteiro falhou → dados antigos intactos");

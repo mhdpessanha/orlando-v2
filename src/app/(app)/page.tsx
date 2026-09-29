@@ -8,13 +8,14 @@ import {
   HouseIcon,
   PlaneIcon,
   SparkleIcon,
+  StarIcon,
   TicketIcon,
   UsersIcon,
 } from "@/components/icons";
 import { getSession } from "@/lib/auth";
 import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
 import { PARQUE_INFO } from "@/lib/parques";
-import { getComprasResumo, getDecisoesResumo, getHomeData } from "@/lib/queries";
+import { getAtracoesResumo, getComprasResumo, getDecisoesResumo, getHomeData } from "@/lib/queries";
 
 function StarField() {
   return (
@@ -73,9 +74,14 @@ export default async function HomePage() {
     getHomeData(),
     getSession(),
   ]);
-  const [decisoes, compras] = session
-    ? await Promise.all([getDecisoesResumo(session.userId), getComprasResumo(session.userId)])
-    : [null, null];
+  const [decisoes, compras, atracoes] = session
+    ? await Promise.all([
+        getDecisoesResumo(session.userId),
+        getComprasResumo(session.userId),
+        getAtracoesResumo(session.userId),
+      ])
+    : [null, null, null];
+  const atracoesFaltam = atracoes ? atracoes.total - atracoes.minhas : 0;
 
   return (
     <div className="flex flex-col gap-[26px] pt-[26px]">
@@ -135,6 +141,46 @@ export default async function HomePage() {
             </span>
           </div>
           <ChevronRightIcon width={15} height={15} className="shrink-0 text-gold-light" />
+        </Link>
+      )}
+
+      {atracoes && (
+        <Link
+          href={
+            atracoesFaltam > 0
+              ? `/roteiro/atracoes/classificar${atracoes.proximo ? `?parque=${atracoes.proximo}` : ""}`
+              : "/roteiro/atracoes?ver=familia"
+          }
+          className={`flex items-center gap-3.5 rounded-card border px-4 py-[15px] ${
+            atracoesFaltam > 0
+              ? "border-gold/40 bg-[linear-gradient(135deg,rgba(246,196,83,0.16),rgba(246,196,83,0.04))]"
+              : "border-stroke bg-surface"
+          }`}
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-gold/[0.14]">
+            <StarIcon width={20} height={20} className="text-gold-light" />
+          </div>
+          <div className="flex grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">
+              {atracoes.minhas === 0
+                ? "Quais atrações são imperdíveis pra você?"
+                : atracoesFaltam > 0
+                  ? `Atrações: sua nota em ${atracoes.minhas} de ${atracoes.total}`
+                  : "Você deu nota em todas as atrações"}
+            </span>
+            <span className="text-[12px] text-ink-muted">
+              {atracoes.minhas === 0
+                ? `${atracoes.total} atrações pra dar nota — o roteiro sai daqui`
+                : atracoesFaltam > 0
+                  ? "continua de onde parou — fica tudo salvo"
+                  : "ver o ranking da família"}
+            </span>
+          </div>
+          <ChevronRightIcon
+            width={15}
+            height={15}
+            className={`shrink-0 ${atracoesFaltam > 0 ? "text-gold-light" : "text-ink-faint"}`}
+          />
         </Link>
       )}
 

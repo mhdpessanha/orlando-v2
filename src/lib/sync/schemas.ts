@@ -45,6 +45,24 @@ const enumOpt = <T extends readonly string[]>(vals: T) =>
     .transform((v) => (v === null ? null : normEnum(v)))
     .refine((v): v is T[number] | null => v === null || vals.includes(v), `deve ser um de: ${vals.join(", ")}`);
 
+const parqueOpt = opt
+  .transform((v) => (v === null ? null : normEnum(v).toUpperCase()))
+  .refine((v): v is (typeof PARQUES)[number] | null => v === null || PARQUES.includes(v as never), `deve ser um de: ${PARQUES.join(", ")}`);
+
+const parqueReq = req
+  .transform((v) => normEnum(v).toUpperCase())
+  .refine((v): v is (typeof PARQUES)[number] => PARQUES.includes(v as never), `deve ser um de: ${PARQUES.join(", ")}`);
+
+// Inteiro opcional, aceitando a unidade junto: "102", "102 cm", "5 min"
+const intOpt = opt
+  .refine((v) => v === null || /^\d+\s*(cm|min)?$/i.test(v), "deve ser um inteiro")
+  .transform((v) => (v === null ? null : parseInt(v, 10)));
+
+const urlOpt = opt.refine((v) => v === null || /^https?:\/\/\S+$/i.test(v), "deve ser um link http(s)");
+
+// Tipo de atração: "Montanha-russa", "Dark ride", "Água" → montanha-russa, dark-ride, agua
+const tipoOpt = curtaOpt.transform((v) => (v === null ? null : normEnum(v).replace(/\s+/g, "-")));
+
 // Chaves = cabeçalhos exatos da linha 1 de cada aba (o contrato do CLAUDE.md).
 
 export const roteiroSchema = z.object({
@@ -52,9 +70,7 @@ export const roteiroSchema = z.object({
   data: dateReq,
   dia_semana: opt,
   titulo: req,
-  parque_code: opt
-    .transform((v) => (v === null ? null : normEnum(v).toUpperCase()))
-    .refine((v): v is (typeof PARQUES)[number] | null => v === null || PARQUES.includes(v as never), `deve ser um de: ${PARQUES.join(", ")}`),
+  parque_code: parqueOpt,
   quem: opt,
   hospedagem_noite: opt,
   early_entry: opt,
@@ -117,6 +133,8 @@ export const turmaSchema = z.object({
   iniciais: opt,
   aniversario: anivOpt,
   tagline: opt,
+  // coluna opcional: altura em cm (crianças), cruza com a altura mínima das atrações
+  altura_cm: intOpt,
 });
 
 export const marcosSchema = z.object({
@@ -213,4 +231,24 @@ export const pendenciasSchema = z.object({
   prazo: dateOpt,
   status: curtaOpt,
   notas: opt,
+});
+
+// Aba opcional Atracoes: o que a família classifica (imperdível → passo) por parque.
+// Alertas = tags separadas por "|" (molha, escuro, pode assustar…).
+export const atracoesSchema = z.object({
+  id: req,
+  parque_code: parqueReq,
+  ordem: intReq,
+  nome: req,
+  tipo: tipoOpt,
+  altura_min_cm: intOpt,
+  descricao: opt,
+  video_url: urlOpt,
+  // colunas opcionais (card expandido e planejamento)
+  foto_url: urlOpt,
+  area: opt,
+  alertas: opt,
+  fila_rapida: opt,
+  duracao_min: intOpt,
+  detalhes: opt,
 });

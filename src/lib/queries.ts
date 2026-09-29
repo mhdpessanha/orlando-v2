@@ -1,4 +1,6 @@
-import type { Person } from "@prisma/client";
+import type { Attraction, Person } from "@prisma/client";
+import type { Crianca } from "./atracoes";
+import { avatarVariant } from "./avatars";
 import { db } from "./db";
 import { hojeBrasilia, moeda } from "./format";
 import { magiaOrdemDoDia } from "./magia";
@@ -71,16 +73,16 @@ export async function getDiaDetalhe(id: string) {
     (a, b) => (PERIODO_RANK[a.periodo] ?? 9) - (PERIODO_RANK[b.periodo] ?? 9) || a.ordem - b.ordem,
   );
 
-  const estadia = dia.hospedagemNoite
-    ? await db.accommodation.findFirst({
-        where: { nome: { contains: dia.hospedagemNoite } },
-      })
-    : null;
+  // hospedagem_noite pode juntar duas estadias na mesma noite: "Polynesian + Drury Plaza"
+  const partes = (dia.hospedagemNoite ?? "").split("+").map((p) => p.trim()).filter(Boolean);
+  const estadias = (
+    await Promise.all(partes.map((p) => db.accommodation.findFirst({ where: { nome: { contains: p } } })))
+  ).filter((e) => e !== null);
 
   return {
     dia,
     agenda,
-    estadia,
+    estadias,
     numeroDoDia: todosDias.findIndex((d) => d.id === id) + 1,
     totalDias: todosDias.length,
     pessoas,
@@ -428,4 +430,146 @@ export async function getComprasResumo(userId: string) {
     }),
   ]);
   return { meus, deOutros, ultimo: ultimo && { nome: ultimo.nome, por: ultimo.user.name } };
+}
+
+// ── Atrações: conteúdo da aba Atracoes + notas de cada adulto (interação, só SQLite) ──
+
+// Parques na ordem em que aparecem no roteiro; os que não estão no roteiro vão pro fim.
+function ordenarParques(codes: string[], dias: { data: string; parqueCode: string | null }[]): string[] {
+  const primeiroDia = new Map<string, string>();
+  for (const d of [...dias].sort((a, b) => a.data.localeCompare(b.data))) {
+    if (d.parqueCode && !primeiroDia.has(d.parqueCode)) primeiroDia.set(d.parqueCode, d.data);
+  }
+  return [...new Set(codes)].sort(
+    (a, b) => (primeiroDia.get(a) ?? "9999").localeCompare(primeiroDia.get(b) ?? "9999") || a.localeCompare(b),
+  );
+}
+
+function normNome(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+// Os 6 logins com o avatar da pessoa correspondente na Turma (casando pelo nome).
+async function getVotantes() {
+  const [usuarios, pessoas] = await Promise.all([
+    db.user.findMany({ select: { id: true, name: true, nucleo: true } }),
+    getPessoas(),
+  ]);
+  const indices = indicePorNucleo(pessoas);
+  return usuarios
+    .map((u) => {
+      const pos = pessoas.findIndex((p) => normNome(p.nome) === normNome(u.name));
+      const p = pos >= 0 ? pessoas[pos] : null;
+      return {
+        id: u.id,
+        nome: u.name,
+        iniciais: p?.iniciais ?? u.name.charAt(0).toUpperCase(),
+        avatar: avatarVariant(p?.nucleo ?? u.nucleo, p ? (indices.get(p.id) ?? 0) : 0),
+        pos: pos >= 0 ? pos : 99,
+      };
+    })
+    .sort((a, b) => a.pos - b.pos || a.nome.localeCompare(b.nome));
+}
+
+type Votante = Awaited<ReturnType<typeof getVotantes>>[number];
+
+function decorarAtracao(
+  atracao: Attraction,
+  notas: { userId: string; attractionId: string; nota: number }[],
+  votantes: Votante[],
+  userId: string,
+) {
+  const daAtracao = notas.filter((n) => n.attractionId === atracao.id);
+  const votos = votantes.flatMap((v) => {
+    const n = daAtracao.find((x) => x.userId === v.id);
+    return n ? [{ ...v, nota: n.nota }] : [];
+  });
+  return {
+    atracao,
+    minhaNota: daAtracao.find((n) => n.userId === userId)?.nota ?? null,
+    votos,
+    media: votos.length > 0 ? votos.reduce((acc, v) => acc + v.nota, 0) / votos.length : null,
+    imperdiveis: votos.filter((v) => v.nota === 3).length,
+    faltam: votantes.filter((v) => !votos.some((x) => x.id === v.id)).map((v) => v.nome),
+  };
+}
+
+export type AtracaoDecorada = ReturnType<typeof decorarAtracao>;
+
+// Ranking da família: maior média primeiro; empate → mais "imperdível" → ordem da planilha.
+// Sem nenhum voto vai pro fim.
+export function rankingFamilia(itens: AtracaoDecorada[]): AtracaoDecorada[] {
+  return [...itens].sort(
+    (a, b) =>
+      (b.media ?? -1) - (a.media ?? -1) ||
+      b.imperdiveis - a.imperdiveis ||
+      a.atracao.ordem - b.atracao.ordem,
+  );
+}
+
+export async function getAtracoes(userId: string, parqueSel?: string) {
+  const [atracoes, notas, votantes, dias, pessoas] = await Promise.all([
+    db.attraction.findMany({ orderBy: [{ ordem: "asc" }, { id: "asc" }] }),
+    db.attractionRating.findMany({ select: { userId: true, attractionId: true, nota: true } }),
+    getVotantes(),
+    db.day.findMany({ select: { data: true, parqueCode: true } }),
+    getPessoas(),
+  ]);
+
+  const criancas: Crianca[] = pessoas
+    .filter((p) => p.tipo === "crianca")
+    .map((p) => ({ nome: p.nome, alturaCm: p.alturaCm }));
+  const minhas = new Set(notas.filter((n) => n.userId === userId).map((n) => n.attractionId));
+
+  const parques = ordenarParques(
+    atracoes.map((a) => a.parqueCode),
+    dias,
+  ).map((code) => {
+    const doParque = atracoes.filter((a) => a.parqueCode === code);
+    return {
+      code,
+      total: doParque.length,
+      minhas: doParque.filter((a) => minhas.has(a.id)).length,
+      dias: dias
+        .filter((d) => d.parqueCode === code)
+        .map((d) => d.data)
+        .sort(),
+    };
+  });
+  // parque pedido; senão o primeiro com nota faltando; senão o primeiro do roteiro
+  const parque =
+    parques.find((p) => p.code === parqueSel) ?? parques.find((p) => p.minhas < p.total) ?? parques[0] ?? null;
+
+  return {
+    parques,
+    parque,
+    itens: parque
+      ? atracoes.filter((a) => a.parqueCode === parque.code).map((a) => decorarAtracao(a, notas, votantes, userId))
+      : [],
+    criancas,
+    totalVotantes: votantes.length,
+    total: atracoes.length,
+    minhasTotal: atracoes.filter((a) => minhas.has(a.id)).length,
+  };
+}
+
+// Resumo pro card da home: quantas já têm a minha nota e onde continuar.
+export async function getAtracoesResumo(userId: string) {
+  const [atracoes, minhas, dias] = await Promise.all([
+    db.attraction.findMany({ select: { id: true, parqueCode: true } }),
+    db.attractionRating.findMany({ where: { userId }, select: { attractionId: true } }),
+    db.day.findMany({ select: { data: true, parqueCode: true } }),
+  ]);
+  if (atracoes.length === 0) return null;
+  const feitas = new Set(minhas.map((m) => m.attractionId));
+  const proximo =
+    ordenarParques(
+      atracoes.map((a) => a.parqueCode),
+      dias,
+    ).find((code) => atracoes.some((a) => a.parqueCode === code && !feitas.has(a.id))) ?? null;
+  return {
+    total: atracoes.length,
+    minhas: atracoes.filter((a) => feitas.has(a.id)).length,
+    proximo,
+  };
 }

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BedIcon, CakeIcon, ChevronLeftIcon } from "@/components/icons";
+import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
+import { getSession } from "@/lib/auth";
+import { precisaTroca, trocaLabel } from "@/lib/atracoes";
 import { avatarVariant } from "@/lib/avatars";
 import { aniversarioAno, mesmoDiaMes, parseISO, periodoEstadia, tituloDia } from "@/lib/format";
 import { hexRgba, PARQUE_INFO, PERIODO_INFO } from "@/lib/parques";
-import { getDiaDetalhe, indicePorNucleo, pessoasDoDia } from "@/lib/queries";
+import { getAtracoes, getDiaDetalhe, indicePorNucleo, pessoasDoDia, rankingFamilia } from "@/lib/queries";
 
 export const metadata = { title: "Roteiro · Orlando 2027" };
 
@@ -12,7 +14,16 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const detalhe = await getDiaDetalhe(id);
   if (!detalhe) notFound();
-  const { dia, agenda, estadia, numeroDoDia, pessoas } = detalhe;
+  const { dia, agenda, estadias, numeroDoDia, pessoas } = detalhe;
+  const session = await getSession();
+  const atracoes =
+    dia.parqueCode && session ? await getAtracoes(session.userId, dia.parqueCode) : null;
+  const doParque = atracoes?.parque?.code === dia.parqueCode ? atracoes : null;
+  const imperdiveis = doParque
+    ? rankingFamilia(doParque.itens)
+        .filter((i) => i.media !== null)
+        .slice(0, 5)
+    : [];
 
   const parque = dia.parqueCode ? PARQUE_INFO[dia.parqueCode] : null;
   const aniversariantes = pessoas.filter(
@@ -170,6 +181,64 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
         )}
       </div>
 
+      {doParque?.parque && parque && (
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-end justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+              Imperdíveis da família
+            </span>
+            <Link
+              href={`/roteiro/atracoes?parque=${dia.parqueCode}&ver=familia`}
+              className="flex items-center gap-1 text-[11.5px] font-extrabold text-gold-light"
+            >
+              ranking completo
+              <ChevronRightIcon width={13} height={13} strokeWidth={2.2} />
+            </Link>
+          </div>
+          {imperdiveis.length === 0 ? (
+            <Link
+              href={`/roteiro/atracoes/classificar?parque=${dia.parqueCode}`}
+              className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]"
+            >
+              <StarIcon width={20} height={20} className="shrink-0 text-gold" />
+              <span className="grow text-[13px] text-ink-muted">
+                Ninguém deu nota ainda nas {doParque.parque.total} atrações do {parque.nome} — começa você.
+              </span>
+              <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
+            </Link>
+          ) : (
+            <div className="flex flex-col divide-y divide-[rgba(255,255,255,0.08)] rounded-card border border-stroke bg-surface">
+              {imperdiveis.map((i, n) => (
+                <div key={i.atracao.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className={`w-4 font-display text-[15px] font-semibold ${n < 3 ? "text-gold-light" : "text-ink-faint"}`}>
+                    {n + 1}
+                  </span>
+                  <div className="flex min-w-0 grow flex-col">
+                    <span className="truncate text-[13.5px] font-extrabold">{i.atracao.nome}</span>
+                    {precisaTroca(i.atracao.alturaMinCm, doParque.criancas) && (
+                      <span className="text-[11px] font-bold text-lavanda">{trocaLabel(i.atracao.parqueCode)}</span>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-[12px] font-extrabold text-ink-muted">
+                    {i.media!.toFixed(1).replace(".", ",")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {doParque.parque.minhas < doParque.parque.total && imperdiveis.length > 0 && (
+            <Link
+              href={`/roteiro/atracoes/classificar?parque=${dia.parqueCode}`}
+              className="text-[12px] font-bold text-ink-muted underline underline-offset-2"
+            >
+              {doParque.parque.total - doParque.parque.minhas === 1
+                ? "falta 1 nota sua neste parque"
+                : `faltam ${doParque.parque.total - doParque.parque.minhas} notas suas neste parque`}
+            </Link>
+          )}
+        </div>
+      )}
+
       {dia.hospedagemNoite && (
         <div className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]">
           <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-gold/[0.12]">
@@ -177,11 +246,21 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-[14px] font-extrabold">Dormimos no {dia.hospedagemNoite}</span>
-            <span className="text-[12px] text-ink-muted">
-              {[estadia?.tipo, periodoEstadia(estadia?.checkin ?? null, estadia?.checkout ?? null)]
-                .filter(Boolean)
-                .join(" · ") || "detalhes em Hospedagens"}
-            </span>
+            {estadias.length === 0 && (
+              <span className="text-[12px] text-ink-muted">detalhes em Hospedagens</span>
+            )}
+            {estadias.map((e) => (
+              <span key={e.id} className="text-[12px] text-ink-muted">
+                {[
+                  // com duas estadias na mesma noite, diz quem fica em cada uma
+                  estadias.length > 1 ? (e.quem ?? e.nome) : null,
+                  e.tipo,
+                  periodoEstadia(e.checkin, e.checkout),
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || "detalhes em Hospedagens"}
+              </span>
+            ))}
           </div>
         </div>
       )}

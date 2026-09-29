@@ -255,3 +255,39 @@ export function GiftIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function StarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6L12 17l-5.38 2.85 1.03-6L3.3 9.6l6-.9z" />
+    </svg>
+  );
+}
+
+export function PlayIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M10 8.6l5.2 3.4-5.2 3.4z" />
+    </svg>
+  );
+}
+
+export function RulerIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <rect x="7.5" y="2.5" width="9" height="19" rx="1.6" />
+      <path d="M7.5 7h3M7.5 10.5h4.5M7.5 14h3M7.5 17.5h4.5" />
+    </svg>
+  );
+}
+
+export function ExternalIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5" />
+    </svg>
+  );
+}

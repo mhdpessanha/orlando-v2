@@ -8,18 +8,19 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  username       String          @unique
-  passwordHash   String
-  name           String
-  nucleo         String
-  papel          String          @default("membro")
-  createdAt      DateTime        @default(now())
-  sessions       Session[]
-  votes          Vote[]
-  triviaAnswers  TriviaAnswer[]
-  checklistTicks ChecklistTick[]
-  wishItems      WishItem[]
+  id                String             @id @default(cuid())
+  username          String             @unique
+  passwordHash      String
+  name              String
+  nucleo            String
+  papel             String             @default("membro")
+  createdAt         DateTime           @default(now())
+  sessions          Session[]
+  votes             Vote[]
+  triviaAnswers     TriviaAnswer[]
+  checklistTicks    ChecklistTick[]
+  wishItems         WishItem[]
+  attractionRatings AttractionRating[]
 }
 
 model Session {
@@ -112,6 +113,7 @@ model Person {
   iniciais    String?
   aniversario String?
   tagline     String?
+  alturaCm    Int? // coluna opcional altura_cm (crianças: cruza com a altura mínima das atrações)
 }
 
 model Milestone {
@@ -213,6 +215,30 @@ model Pendencia {
   notas       String?
 }
 
+// Aba Atracoes (opcional): as atrações que a família classifica por parque.
+// As notas de cada um são interação (AttractionRating), não conteúdo.
+model Attraction {
+  id          String  @id
+  parqueCode  String // MK, EP, AK, HS, EPIC, USF, IOA…
+  ordem       Int
+  nome        String
+  tipo        String? // normalizado: montanha-russa, dark-ride, simulador, agua, passeio, show, noturno, parada, personagens, trilha
+  alturaMinCm Int?
+  descricao   String?
+  videoUrl    String?
+  // colunas opcionais da aba
+  fotoUrl     String?
+  area        String?
+  alertas     String? // tags separadas por "|"
+  filaRapida  String?
+  duracaoMin  Int?
+  detalhes    String?
+  // cache local da foto (preenchido pelo sync, não vem da planilha)
+  fotoOrigem  String? // URL que foi baixada pra data/atracoes/<id>
+
+  @@index([parqueCode])
+}
+
 // ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
 
 model Vote {
@@ -256,6 +282,20 @@ model ChecklistTick {
   createdAt DateTime @default(now())
 
   @@unique([userId, itemKey])
+}
+
+// Nota de cada adulto pra cada atração: 3 imperdível · 2 quero muito · 1 se der · 0 passo.
+// Salva a cada toque (dá pra parar e continuar depois).
+model AttractionRating {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attractionId String // Attraction.id (sem FK: a aba sincroniza sozinha)
+  nota         Int
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, attractionId])
+  @@index([attractionId])
 }
 
 // Lista de compras: interação do usuário (nunca vai pra planilha).

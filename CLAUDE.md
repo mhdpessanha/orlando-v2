@@ -10,7 +10,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 2. **Visibilidade financeira por núcleo, aplicada no servidor.** Núcleos: `pessanha` (Murilo+Joana), `gabi` (Gabi+Gustavo+Lucas), `vitor`, `mariana`. Cada usuário só recebe do servidor os dados financeiros do próprio núcleo; `papel=admin` (Murilo) vê tudo. Nunca resolver isso escondendo no client.
 3. **Mobile-first (390px), pt-BR, PWA instalável, tema escuro único** ("noite de fogos" — ver Design). Sem light mode, sem i18n.
 4. **Nada sensível:** sem upload de documentos, sem dados de passaporte/visto. Localizadores de reserva podem aparecer (decisão consciente).
-5. 6 logins: murilo (admin), joana, gabi, gustavo, vitor, mariana. Crianças (Olívia, Bernardo, Lucas) são perfis na Turma, sem login.
+5. 6 logins: murilo (admin), joana, gabi, gustavo, vitor, mariana. Crianças (Olívia, Bernardo, Lucas) são perfis na Turma, sem login — na viagem terão 4a6m, 1a8m e 5a6m; as alturas são medidas em dez/2026 (coluna `altura_cm` da Turma).
 
 ## Stack e infra
 
@@ -35,7 +35,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 | Agenda | id, roteiro_id, periodo, ordem, titulo, local, detalhe, chip |
 | Voos | id, grupo, status, trecho, data, voo, origem, destino, saida, chegada, **reserva**, notas · opcionais: bilhete, bagagem, assentos, detalhes |
 | Hospedagens | id, nome, tipo, checkin, checkout, quem, status, confirmacao, notas · opcionais: endereco, detalhes |
-| Turma | id, nome, nucleo, tipo, papel, iniciais, aniversario, tagline |
+| Turma | id, nome, nucleo, tipo, papel, iniciais, aniversario, tagline · opcional: altura_cm |
 | Marcos | id, data, hora, titulo, categoria, status, descricao |
 | Guia | id, secao, ordem, titulo, conteudo · opcional: detalhes |
 | Pacote | id, nucleo, descricao, moeda, valor_total, notas |
@@ -45,6 +45,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 | Magia | id, ordem, tema, texto |
 | Decisoes | id, ordem, pergunta, detalhe, opcoes, status, encerra_em · opcional: explicacao |
 | Pendencias (aba opcional) | id, titulo, categoria, responsavel, prazo, status, notas |
+| Atracoes (aba opcional) | id, parque_code, ordem, nome, tipo, altura_min_cm, descricao, video_url · opcionais: foto_url, area, alertas, fila_rapida, duracao_min, detalhes |
 
 Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia sem parque) · `periodo` ∈ manha, tarde, noite · `grupo` (voos) ∈ familia, gabi, vm · `nucleo` ∈ pessanha, gabi, vitor, mariana · `tipo` (turma) ∈ adulto, crianca · `papel` ∈ admin, membro, perfil · `status` (voos/marcos) ∈ emitido/pendente/feito etc. — validar como string curta, não travar em lista fechada.
 
@@ -54,10 +55,11 @@ Enums: `parque_code` ∈ MK, EP, AK, HS, USF, IOA, EPIC, SW, PEPPA (vazio = dia 
 - **Voos: a coluna `reserva` é o localizador** e deve aparecer em destaque no site, com botão de copiar — é o dado que a família vai buscar na correria do aeroporto. `notas` é contexto secundário.
 - **Magia:** item do dia determinístico: `ordem = ((diasCorridosDesde(2026-09-04)) mod N) + 1`, virando à meia-noite de Brasília; datas antes do epoch mostram o #1. Mostrar "#<ordem> de <N>".
 - **Decisoes (votações):** as perguntas são conteúdo (vêm da planilha); os votos são interação (só SQLite, tabela `Vote`, 1 por usuário/pergunta, pode trocar enquanto aberta). `opcoes` separadas por `\|` (mínimo 2) · `status` vazio = aberta, `fechada` = encerrada · `encerra_em` opcional (aceita votos até o fim daquele dia, Brasília). Tela `/decisoes` + card na home + ícone na nav (badge com nº de decisões em aberto; dourado enquanto falta o voto de quem está logado).
+- **Atracoes (tier list, desde 29/09/2026):** as atrações são conteúdo (planilha); as notas são interação (só SQLite, `AttractionRating`, 1 por usuário/atração, salva a cada toque). Notas: 3 Imperdível · 2 Quero muito · 1 Se der · 0 Passo; ranking da família = maior média → mais "imperdível" → `ordem`. `tipo` ∈ montanha-russa, dark ride, simulador, água, passeio, show, noturno, parada, personagens, trilha (normalizado: `dark-ride`, `agua`); `altura_min_cm` inteiro (vazio = sem altura mínima; aceita "102 cm"); `alertas` separados por `\|` (molha, escuro, pode assustar, enjoo, radical…); `video_url` do YouTube (embutido na folha via youtube-nocookie). **Fotos:** `foto_url` ou, sem ela, a miniatura do vídeo — o sync baixa pra `data/atracoes/<id>.<ext>` (só o que mudou; `Attraction.fotoOrigem` guarda a origem baixada) e o site serve por `/api/atracoes/[id]/foto`. **Fator criança:** `altura_min_cm` × `altura_cm` das crianças da Turma → quem pode/não pode; criança de fora = Rider Switch (Disney) / Child Swap (Universal/Epic); quem deu "Passo" aparece como candidato a ficar com as crianças.
 
 ## Modelo de dados (Prisma, direção)
 
-`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `MagicFact`, `Poll`, `Pendencia`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `Package`/`Payment`/`BudgetHint` (índice em `nucleo`) + `Expense` (só admin); toda query financeira filtra por núcleo do usuário logado no server. `WishItem` (lista de compras, ver tela 11): `userId`, nome, onde, `paraPersonId` (Person da Turma, sem FK), `precoBrasil`, link, notas, `publico`, `comprado`.
+`User` (username, passwordHash, name, nucleo, papel) · espelhos das abas (`Day`, `AgendaItem`, `Flight`, `Accommodation`, `Person`, `Milestone`, `GuideEntry`, `MagicFact`, `Poll`, `Pendencia`) · `Session` · `SyncLog`. Fase 2 (criar já, usar depois): `Vote`, `TriviaRound`/`TriviaAnswer`, `ChecklistTick` — todas com `userId`. (Bolão/`Prediction` foi descartado em 04/09/2026 — não recriar.) `Package`/`Payment`/`BudgetHint` (índice em `nucleo`) + `Expense` (só admin); toda query financeira filtra por núcleo do usuário logado no server. `Attraction` (espelho da aba Atracoes) + `AttractionRating` (`userId`, `attractionId` sem FK, `nota` 0–3); `Person.alturaCm`. `WishItem` (lista de compras, ver tela 11): `userId`, nome, onde, `paraPersonId` (Person da Turma, sem FK), `precoBrasil`, link, notas, `publico`, `comprado`.
 
 ## Design — "noite de fogos"
 
@@ -90,6 +92,7 @@ Tokens (pro `tailwind.config`):
 10. **Decisões** — `/decisoes`: votação da família nas escolhas em aberto (aba Decisoes), resultado com quem votou em quê. Tocar na pergunta abre a folha com `detalhe` + `explicacao`.
 
 11. **Compras** — `/compras` (desde 10/09/2026): lista de desejos de cada usuário (interação, só SQLite — não é conteúdo da planilha). Item tem nome, onde, "pra quem" (select da Turma; vazio = pra mim), **preço estimado no Brasil** (R$, base pra comparar lá), link, notas, e é **público ou privado por item** (privado só sai do servidor pro dono; nem o admin vê). Tela: formulário de novo item no topo, "Minha lista" (toque abre folha de edição; círculo marca `comprado`, que vira checklist no modo viagem) e "Da família" agrupada por usuário com total estimado. Card na home com contagem e último item publicado. Server actions em `src/app/(app)/compras/actions.ts`, sempre com `userId` da sessão no where.
+12. **Atrações** — `/roteiro/atracoes` (aba "Atrações" dentro do Roteiro; a nav não ganhou item): progresso geral, chips por parque na ordem do roteiro, "Minha lista" (agrupada por nota) e "Família" (ranking com avatares por nota; admin tem "copiar ranking"). Toque abre a folha com vídeo, detalhes, crianças e a minha nota. Modo rápido em `/roteiro/atracoes/classificar` (uma por vez, 4 botões grandes, cada toque salva e pula pra próxima sem nota; sem `?parque=` abre o primeiro parque com nota faltando). Dia de parque no roteiro mostra o top 5 "Imperdíveis da família"; card na home com o progresso.
 
 Modo viagem (home vira "hoje") é fase 3 — deixar o layout da home preparado, não implementar agora.
 
@@ -99,6 +102,13 @@ Modo viagem (home vira "hoje") é fase 3 — deixar o layout da home preparado, 
 - **M2:** schema + sync completo da planilha com validação e SyncLog.
 - **M3:** telas 2–8 com dados reais.
 - **M4:** PWA + polish (animações discretas, estrelas no herói).
+
+## Roadmap pós-MVP
+
+- **Fase 2 — Hype (nov–dez/2026):** ~~wishlist de atrações~~ (feita em 29/09/2026: tela 12) · trivia dos parques com ranking entre os 6 adultos · clima de janeiro + crowd calendar (API queue-times).
+- **Fase 3 — Modo viagem (jan/2027):** a partir de 07/01 a home vira "hoje" (parque do dia, horários, reservas do dia, quem vai aonde) · galeria do álbum compartilhado do iCloud organizada por dia · wishlist vira checklist de "feito!".
+- **Fotos:** iCloud Shared Album via webstream (API não oficial; lib `ICloud-Shared-Album` no npm). Google Photos descartado: desde 31/03/2025 a Library API não lê mais álbuns do usuário. Validar com um álbum de teste antes da Fase 3; fallback: Immich no server ou upload simples.
+- **Fora de escopo (reavaliar pós-MVP):** notificações push/Telegram · rateio detalhado de despesas (fica na planilha).
 
 ## Não fazer
 

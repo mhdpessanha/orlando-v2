@@ -3,8 +3,10 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AbaNaoEncontrada, fetchTab, sheetsIndisponivel } from "./sheets";
 import { rowsToObjects, TabError } from "./parse";
+import { cacheFotosAtracoes } from "./fotos";
 import {
   agendaSchema,
+  atracoesSchema,
   decisoesSchema,
   gastosSchema,
   guiaSchema,
@@ -186,6 +188,7 @@ const TABS: TabDef[] = [
   {
     aba: "Turma",
     headers: ["id", "nome", "nucleo", "tipo", "papel", "iniciais", "aniversario", "tagline"],
+    opcionais: ["altura_cm"],
     processar: async (rows) => {
       const data = validar(turmaSchema, rows).map((r) => ({
         id: r.id,
@@ -196,6 +199,7 @@ const TABS: TabDef[] = [
         iniciais: r.iniciais,
         aniversario: r.aniversario,
         tagline: r.tagline,
+        alturaCm: r.altura_cm,
       }));
       await mirror(
         data,
@@ -381,6 +385,36 @@ const TABS: TabDef[] = [
     },
   },
   {
+    aba: "Atracoes",
+    abaOpcional: true,
+    headers: ["id", "parque_code", "ordem", "nome", "tipo", "altura_min_cm", "descricao", "video_url"],
+    opcionais: ["foto_url", "area", "alertas", "fila_rapida", "duracao_min", "detalhes"],
+    processar: async (rows) => {
+      const data = validar(atracoesSchema, rows).map((r) => ({
+        id: r.id,
+        parqueCode: r.parque_code,
+        ordem: r.ordem,
+        nome: r.nome,
+        tipo: r.tipo,
+        alturaMinCm: r.altura_min_cm,
+        descricao: r.descricao,
+        videoUrl: r.video_url,
+        fotoUrl: r.foto_url,
+        area: r.area,
+        alertas: r.alertas,
+        filaRapida: r.fila_rapida,
+        duracaoMin: r.duracao_min,
+        detalhes: r.detalhes,
+      }));
+      await mirror(
+        data,
+        (d) => db.attraction.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.attraction.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
     aba: "Magia",
     headers: ["id", "ordem", "tema", "texto"],
     processar: async (rows) => {
@@ -442,6 +476,14 @@ async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
       console.error(`[sync] aba ${tab.aba}: ${erro}`);
       await db.syncLog.create({ data: { aba: tab.aba, status: "erro", erro } }).catch(() => {});
     }
+  }
+
+  // Fotos das atrações: baixa só o que mudou (Google/YouTube fora do ar não derruba o sync).
+  // Fetcher injetado (testes) não toca a rede.
+  if (fetcher === fetchTab && abas.some((a) => a.aba === "Atracoes" && a.status === "ok")) {
+    await cacheFotosAtracoes().catch((e) =>
+      console.error(`[sync] fotos das atrações: ${e instanceof Error ? e.message : String(e)}`),
+    );
   }
 
   await db.syncLog

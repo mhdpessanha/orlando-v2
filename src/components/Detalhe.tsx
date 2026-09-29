@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRightIcon, CloseIcon, InfoIcon } from "./icons";
 
 // Folha de detalhe: sobe por cima da tela com o "card maior" de um item.
 // Conteúdo é renderizado no server e passado como children — aqui só
 // mora o abre/fecha. Portal no body pra fugir do transform do animate-rise.
+
+// Quem está dentro da folha pode fechá-la (ex.: depois de salvar uma nota)
+export const FecharFolha = createContext<(() => void) | null>(null);
 
 type FolhaProps = {
   aberta: boolean;
@@ -67,7 +70,7 @@ export function Folha({ aberta, onFechar, titulo, rotulo, children }: FolhaProps
           </button>
         </div>
         <div className="flex flex-col gap-4 overflow-y-auto px-[22px] pb-[calc(22px+env(safe-area-inset-bottom))] pt-1">
-          {children}
+          <FecharFolha.Provider value={onFechar}>{children}</FecharFolha.Provider>
         </div>
       </div>
     </div>,

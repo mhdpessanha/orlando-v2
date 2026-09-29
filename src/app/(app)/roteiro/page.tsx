@@ -1,22 +1,31 @@
 import Link from "next/link";
+import { getSession } from "@/lib/auth";
 import { diaNumero, diaSemanaCurto } from "@/lib/format";
 import { hexRgba, PARQUE_INFO } from "@/lib/parques";
-import { getDias, TRIP_FIM, TRIP_INICIO } from "@/lib/queries";
+import { getAtracoesResumo, getDias, TRIP_FIM, TRIP_INICIO } from "@/lib/queries";
+import AbasRoteiro from "./AbasRoteiro";
 
 export const metadata = { title: "Roteiro · Orlando 2027" };
 
 export default async function RoteiroPage() {
-  const dias = await getDias();
+  const session = await getSession();
+  const [dias, atracoes] = await Promise.all([
+    getDias(),
+    session ? getAtracoesResumo(session.userId) : null,
+  ]);
 
   return (
     <div className="flex flex-col gap-[22px] pt-[26px]">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-display text-[30px] font-semibold leading-[1.1]">Roteiro</h1>
-        <span className="text-[13px] font-semibold text-ink-muted">
-          {dias.length > 0
-            ? `${dias.length} dias · ${TRIP_INICIO.slice(8)} a ${TRIP_FIM.slice(8)} de janeiro`
-            : "os dias aparecem aqui após o sync da planilha"}
-        </span>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-display text-[30px] font-semibold leading-[1.1]">Roteiro</h1>
+          <span className="text-[13px] font-semibold text-ink-muted">
+            {dias.length > 0
+              ? `${dias.length} dias · ${TRIP_INICIO.slice(8)} a ${TRIP_FIM.slice(8)} de janeiro`
+              : "os dias aparecem aqui após o sync da planilha"}
+          </span>
+        </div>
+        {atracoes && <AbasRoteiro ativa="dias" pendentes={atracoes.total - atracoes.minhas} />}
       </div>
 
       <div className="flex flex-col gap-3">
