@@ -215,9 +215,11 @@ export default async function HomePage() {
             </span>
             <span className="text-[12px] text-ink-muted">
               {atracoes.minhas === 0
-                ? `${atracoes.total} atrações pra dar nota — o roteiro sai daqui`
+                ? `${atracoes.total} atrações em ${atracoes.parques} parques — o roteiro sai daqui`
                 : atracoesFaltam > 0
-                  ? "continua de onde parou — fica tudo salvo"
+                  ? `${atracoes.parquesProntos} de ${atracoes.parques} parques prontos${
+                      atracoes.proximo ? ` · continuar no ${PARQUE_INFO[atracoes.proximo]?.nome ?? atracoes.proximo}` : ""
+                    }`
                   : "ver o ranking da família"}
             </span>
           </div>

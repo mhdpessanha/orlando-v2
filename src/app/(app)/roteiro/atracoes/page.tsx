@@ -23,6 +23,7 @@ import BotoesNota from "./BotoesNota";
 import DetalheAtracao from "./DetalheAtracao";
 import FotoAtracao from "./FotoAtracao";
 import ItemAtracao from "./ItemAtracao";
+import TrilhaParques from "./TrilhaParques";
 
 export const metadata = { title: "Atrações · Orlando 2027" };
 
@@ -237,6 +238,9 @@ export default async function AtracoesPage({
     parqueSel,
   );
   const pendentes = total - minhasTotal;
+  const parquesProntos = parques.filter((p) => p.minhas >= p.total).length;
+  // "continuar" vai pro primeiro parque (na ordem do roteiro) com nota faltando
+  const continuar = parques.find((p) => p.minhas < p.total) ?? null;
   const cor = parque ? corDoParque(parque.code) : COR_PADRAO;
   const nomeParque = parque ? (PARQUE_INFO[parque.code]?.nome ?? parque.code) : "";
   const faltamNoParque = parque ? parque.total - parque.minhas : 0;
@@ -276,7 +280,13 @@ export default async function AtracoesPage({
               <span className="text-[14px] font-extrabold">
                 {pendentes > 0 ? `Sua nota em ${minhasTotal} de ${total} atrações` : `Você deu nota nas ${total} atrações`}
               </span>
-              {pendentes === 0 && <CheckIcon width={18} height={18} className="shrink-0 text-gold-light" />}
+              {pendentes === 0 ? (
+                <CheckIcon width={18} height={18} className="shrink-0 text-gold-light" />
+              ) : (
+                <span className="shrink-0 text-[11.5px] font-bold text-ink-muted">
+                  {parquesProntos} de {parques.length} parques
+                </span>
+              )}
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
               <div
@@ -285,42 +295,34 @@ export default async function AtracoesPage({
               />
             </div>
             <span className="text-[12px] leading-relaxed text-ink-muted">
-              Cada toque já fica salvo: pode parar no meio e continuar depois, até em outro aparelho.
+              São {parques.length} parques. Cada toque já fica salvo: dá pra trocar de parque, parar no meio e
+              continuar depois, até em outro aparelho.
             </span>
-            {pendentes > 0 && (
+            {continuar && (
               <Link
-                href="/roteiro/atracoes/classificar"
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-4 py-3 text-[14px] font-extrabold text-[#2a1c05]"
+                href={`/roteiro/atracoes/classificar?parque=${continuar.code}`}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-4 py-3 text-[#2a1c05]"
               >
-                {minhasTotal === 0 ? "Começar a dar nota" : "Continuar de onde parei"}
-                <ChevronRightIcon width={15} height={15} strokeWidth={2.2} />
+                <span className="flex flex-col items-center">
+                  <span className="text-[14px] font-extrabold">
+                    {minhasTotal === 0 ? "Começar pelo" : "Continuar:"} {PARQUE_INFO[continuar.code]?.nome ?? continuar.code}
+                  </span>
+                  <span className="text-[11.5px] font-bold opacity-75">
+                    {continuar.total - continuar.minhas === 1
+                      ? "1 sem nota"
+                      : `${continuar.total - continuar.minhas} sem nota`}
+                  </span>
+                </span>
+                <ChevronRightIcon width={16} height={16} strokeWidth={2.2} className="shrink-0" />
               </Link>
             )}
           </div>
 
-          <div className="-mx-[22px] flex gap-2 overflow-x-auto px-[22px] pb-1">
-            {parques.map((p) => {
-              const c = corDoParque(p.code);
-              const ativo = p.code === parque.code;
-              const completo = p.minhas === p.total;
-              return (
-                <Link
-                  key={p.code}
-                  href={href(p.code, familia)}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-[7px] text-[12px] font-extrabold"
-                  style={
-                    ativo
-                      ? { color: c, borderColor: c, background: hexRgba(c, 0.2) }
-                      : { color: c, borderColor: hexRgba(c, 0.35), background: hexRgba(c, 0.07) }
-                  }
-                >
-                  {p.code}
-                  <span className="font-bold text-ink-faint">
-                    {completo ? <CheckIcon width={12} height={12} className="text-ink-muted" /> : `${p.minhas}/${p.total}`}
-                  </span>
-                </Link>
-              );
-            })}
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+              Parques · toque pra trocar
+            </span>
+            <TrilhaParques parques={parques} ativo={parque.code} href={(code) => href(code, familia)} />
           </div>
 
           <section className="flex flex-col gap-3">

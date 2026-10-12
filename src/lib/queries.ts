@@ -604,14 +604,16 @@ export async function getAtracoesResumo(userId: string) {
   ]);
   if (atracoes.length === 0) return null;
   const feitas = new Set(minhas.map((m) => m.attractionId));
-  const proximo =
-    ordenarParques(
-      atracoes.map((a) => a.parqueCode),
-      dias,
-    ).find((code) => atracoes.some((a) => a.parqueCode === code && !feitas.has(a.id))) ?? null;
+  const parques = ordenarParques(
+    atracoes.map((a) => a.parqueCode),
+    dias,
+  );
+  const pendentes = parques.filter((code) => atracoes.some((a) => a.parqueCode === code && !feitas.has(a.id)));
   return {
     total: atracoes.length,
     minhas: atracoes.filter((a) => feitas.has(a.id)).length,
-    proximo,
+    proximo: pendentes[0] ?? null,
+    parques: parques.length,
+    parquesProntos: parques.length - pendentes.length,
   };
 }
