@@ -275,23 +275,19 @@ async function secaoAtracoes(): Promise<string> {
     }
     const doParque = infantis.filter((x) => x.atracao.parqueCode === code);
     if (doParque.length === 0) continue;
-    // sem "detalhes" aqui: o prompt passaria de 100 mil tokens (preço do Haiku dobra)
+    // Uma linha curta por brinquedo (sem descrição nem detalhes): com o texto completo
+    // o prompt passou de 100 mil tokens, onde o preço do Haiku dobra (medido em 03/11/2026).
     linhas.push(`### ${parque(code)} — só na lista das crianças`);
     for (const r of doParque) {
       const a = r.atracao;
-      linhas.push(
-        item(a.nome, [
-          ["tipo", tipoLabel(a.tipo)],
-          ["área", a.area],
-          ["altura", alturaTexto(a.alturaMinCm)],
-          ["alertas", parseAlertas(a.alertas).join(", ")],
-          ["fila rápida", a.filaRapida],
-          ["duração", a.duracaoMin ? `${a.duracaoMin} min` : null],
-          ["média das crianças", r.media !== null ? r.media.toFixed(1).replace(".", ",") : "sem notas ainda"],
-          ["notas das crianças", notasTexto(r.votos)],
-          ["descrição", a.descricao],
-        ]),
-      );
+      const info = [
+        tipoLabel(a.tipo),
+        a.area,
+        a.alturaMinCm === null ? null : alturaTexto(a.alturaMinCm),
+        parseAlertas(a.alertas).join(", ") || null,
+      ].filter(Boolean);
+      const notas = notasTexto(r.votos);
+      linhas.push(`• ${a.nome} (${info.join("; ")})${notas ? ` — notas das crianças: ${notas}` : ""}`);
     }
   }
   return linhas.join("\n");
