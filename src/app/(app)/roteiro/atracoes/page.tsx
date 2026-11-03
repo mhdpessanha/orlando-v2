@@ -7,6 +7,7 @@ import { getSession } from "@/lib/auth";
 import {
   alturaM,
   fotoSrc,
+  hrefClassificar,
   NOTAS,
   notaInfo,
   precisaTroca,
@@ -17,12 +18,19 @@ import {
 } from "@/lib/atracoes";
 import { diaMes } from "@/lib/format";
 import { hexRgba, PARQUE_INFO } from "@/lib/parques";
-import { getAtracoes, rankingFamilia, type AtracaoDecorada } from "@/lib/queries";
+import {
+  getAtracoes,
+  getAtracoesCriancas,
+  getProgressoCriancas,
+  rankingFamilia,
+  type AtracaoDecorada,
+} from "@/lib/queries";
 import AbasRoteiro from "../AbasRoteiro";
 import BotoesNota from "./BotoesNota";
 import DetalheAtracao from "./DetalheAtracao";
 import FotoAtracao from "./FotoAtracao";
 import ItemAtracao from "./ItemAtracao";
+import ListaCriancas, { SeletorCrianca } from "./ListaCriancas";
 import TrilhaParques from "./TrilhaParques";
 
 export const metadata = { title: "Atrações · Orlando 2027" };
@@ -49,7 +57,7 @@ function media(m: number): string {
 
 // Quem deu cada nota (na folha)
 function NotasFamilia({ item, criancas }: { item: AtracaoDecorada; criancas: Crianca[] }) {
-  if (item.votos.length === 0) {
+  if (item.votos.length === 0 && item.criancas.length === 0) {
     return <span className="text-[12.5px] text-ink-muted">ninguém da família deu nota ainda</span>;
   }
   const passam = item.votos.filter((v) => v.nota === 0).map((v) => v.nome);
@@ -78,6 +86,12 @@ function NotasFamilia({ item, criancas }: { item: AtracaoDecorada; criancas: Cri
       })}
       {item.faltam.length > 0 && (
         <span className="text-[11.5px] text-ink-faint">falta: {item.faltam.join(", ")}</span>
+      )}
+      {item.criancas.length > 0 && (
+        <span className="border-t border-white/[0.08] pt-2 text-[12px] font-semibold text-ink-muted">
+          Crianças (fora da média):{" "}
+          {item.criancas.map((c) => `${c.nome} ${notaInfo(c.nota).label.toLowerCase()}`).join(" · ")}
+        </span>
       )}
       {passam.length > 0 && precisaTroca(item.atracao.alturaMinCm, criancas) && (
         <span className="text-[12px] font-semibold text-lavanda">
@@ -167,8 +181,8 @@ function CardFamilia({
           ) : (
             <span className="text-[11.5px] text-ink-faint">sem nota ainda</span>
           )}
-          {votos.length > 0 && (
-            <div className="flex flex-wrap gap-[7px] pt-0.5">
+          {(votos.length > 0 || item.criancas.length > 0) && (
+            <div className="flex flex-wrap items-center gap-[7px] pt-0.5">
               {votos.map((v) => (
                 <Avatar
                   key={v.id}
@@ -180,6 +194,25 @@ function CardFamilia({
                   }}
                 />
               ))}
+              {/* crianças: menores, depois de um tracinho — não entram na média */}
+              {item.criancas.length > 0 && (
+                <>
+                  {votos.length > 0 && <span className="mx-0.5 h-3.5 w-px bg-white/20" aria-hidden />}
+                  {[...item.criancas]
+                    .sort((x, y) => y.nota - x.nota)
+                    .map((c) => (
+                      <Avatar
+                        key={c.id}
+                        a={{ ...c.a, nome: `${c.nome}: ${notaInfo(c.nota).label}` }}
+                        size={18}
+                        style={{
+                          boxShadow: `0 0 0 1.5px #101641, 0 0 0 3px ${notaInfo(c.nota).cor}`,
+                          opacity: c.nota === 0 ? 0.55 : 1,
+                        }}
+                      />
+                    ))}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -213,6 +246,9 @@ function rankingTexto(nomeParque: string, ranking: AtracaoDecorada[], criancas: 
         i.atracao.alturaMinCm !== null ? `mín. ${alturaM(i.atracao.alturaMinCm)}` : null,
         precisaTroca(i.atracao.alturaMinCm, criancas) ? trocaLabel(i.atracao.parqueCode) : null,
         passam.length > 0 ? `passam: ${passam.join(", ")}` : null,
+        i.criancas.length > 0
+          ? `crianças: ${i.criancas.map((c) => `${c.nome} ${notaInfo(c.nota).label.toLowerCase()}`).join(", ")}`
+          : null,
       ].filter(Boolean);
       return `${n + 1}. ${i.atracao.nome} — ${media(i.media!)} (${cont})${extras.length ? ` · ${extras.join(" · ")}` : ""}`;
     });
@@ -227,16 +263,21 @@ function rankingTexto(nomeParque: string, ranking: AtracaoDecorada[], criancas: 
 export default async function AtracoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ parque?: string; ver?: string }>;
+  searchParams: Promise<{ parque?: string; ver?: string; crianca?: string }>;
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  const { parque: parqueSel, ver } = await searchParams;
-  const familia = ver === "familia";
-  const { parques, parque, itens, criancas, total, minhasTotal, totalVotantes } = await getAtracoes(
-    session.userId,
-    parqueSel,
-  );
+  const { parque: parqueSel, ver, crianca: criancaSel } = await searchParams;
+  const aba = ver === "familia" ? "familia" : ver === "criancas" ? "criancas" : "minha";
+  const familia = aba === "familia";
+  const [adultos, dasCriancas, progressoFilhos] = await Promise.all([
+    getAtracoes(session.user, parqueSel),
+    aba === "criancas" ? getAtracoesCriancas(session.user, parqueSel, criancaSel) : null,
+    getProgressoCriancas(session.user.nucleo),
+  ]);
+  const { parques, itens, criancas, total, minhasTotal, totalVotantes } = adultos;
+  // na aba Crianças, o parque (e a trilha) é o da lista delas — inclui o Peppa Pig
+  const parque = dasCriancas ? dasCriancas.parque : adultos.parque;
   const pendentes = total - minhasTotal;
   const parquesProntos = parques.filter((p) => p.minhas >= p.total).length;
   // "continuar" vai pro primeiro parque (na ordem do roteiro) com nota faltando
@@ -244,7 +285,9 @@ export default async function AtracoesPage({
   const cor = parque ? corDoParque(parque.code) : COR_PADRAO;
   const nomeParque = parque ? (PARQUE_INFO[parque.code]?.nome ?? parque.code) : "";
   const faltamNoParque = parque ? parque.total - parque.minhas : 0;
-  const href = (code: string, fam: boolean) => `/roteiro/atracoes?parque=${code}${fam ? "&ver=familia" : ""}`;
+  const href = (code: string, v: string, criancaId?: string | null) =>
+    `/roteiro/atracoes?parque=${code}${v !== "minha" ? `&ver=${v}` : ""}${criancaId ? `&crianca=${criancaId}` : ""}`;
+  const criancaAtiva = dasCriancas?.crianca ?? null;
 
   const ranking = rankingFamilia(itens);
   const comNota = ranking.filter((i) => i.media !== null);
@@ -316,13 +359,62 @@ export default async function AtracoesPage({
                 <ChevronRightIcon width={16} height={16} strokeWidth={2.2} className="shrink-0" />
               </Link>
             )}
+            {progressoFilhos.length > 0 && (
+              <div className="flex flex-col border-t border-white/[0.1] pt-1">
+                <span className="pb-1 pt-2 text-[10px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+                  Com as crianças
+                </span>
+                {progressoFilhos.map(({ crianca: c, total: t, feitas, proximo }) => (
+                  <Link
+                    key={c.id}
+                    href={
+                      proximo
+                        ? hrefClassificar(proximo, c.id)
+                        : href(parque.code, "criancas", c.id)
+                    }
+                    className="flex items-center gap-3 py-2"
+                  >
+                    <Avatar a={c.a} size={30} />
+                    <span className="flex min-w-0 grow flex-col gap-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="text-[13.5px] font-extrabold">{c.nome}</span>
+                        <span className="text-[11.5px] font-bold text-ink-muted">
+                          {c.alturaCm === null ? "falta a altura · " : ""}
+                          {feitas} de {t}
+                        </span>
+                      </span>
+                      <span className="block h-1 overflow-hidden rounded-full bg-white/[0.08]">
+                        <span
+                          className="block h-full rounded-full bg-lavanda"
+                          style={{ width: `${t ? (feitas / t) * 100 : 0}%` }}
+                        />
+                      </span>
+                    </span>
+                    {feitas >= t ? (
+                      <CheckIcon width={16} height={16} className="shrink-0 text-gold-light" />
+                    ) : (
+                      <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">
             <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
               Parques · toque pra trocar
             </span>
-            <TrilhaParques parques={parques} ativo={parque.code} href={(code) => href(code, familia)} />
+            {dasCriancas ? (
+              <TrilhaParques
+                parques={dasCriancas.parques}
+                ativo={parque.code}
+                href={(code) => href(code, "criancas", criancaAtiva?.id)}
+                quem={criancaAtiva ? `notas de ${criancaAtiva.nome}` : "notas das crianças"}
+              />
+            ) : (
+              <TrilhaParques parques={parques} ativo={parque.code} href={(code) => href(code, aba)} />
+            )}
           </div>
 
           <section className="flex flex-col gap-3">
@@ -338,14 +430,19 @@ export default async function AtracoesPage({
               </span>
               <span className="font-display text-[26px] font-semibold leading-none">{nomeParque}</span>
               <span className="text-[12.5px] text-ink-muted">
-                {parque.total} {parque.total === 1 ? "atração" : "atrações"} ·{" "}
-                {faltamNoParque === 0
-                  ? "você já deu nota em todas"
-                  : faltamNoParque === 1
-                    ? "falta 1 nota sua"
-                    : `faltam ${faltamNoParque} notas suas`}
+                {dasCriancas
+                  ? criancaAtiva
+                    ? `notas de ${criancaAtiva.nome}: ${parque.minhas} de ${parque.total}`
+                    : `notas das crianças: ${parque.minhas} de ${parque.total}`
+                  : `${parque.total} ${parque.total === 1 ? "atração" : "atrações"} · ${
+                      faltamNoParque === 0
+                        ? "você já deu nota em todas"
+                        : faltamNoParque === 1
+                          ? "falta 1 nota sua"
+                          : `faltam ${faltamNoParque} notas suas`
+                    }`}
               </span>
-              {faltamNoParque > 0 && (
+              {!dasCriancas && faltamNoParque > 0 && (
                 <Link
                   href={`/roteiro/atracoes/classificar?parque=${parque.code}`}
                   className="mt-1 flex items-center justify-center gap-1.5 rounded-[13px] border px-3 py-2.5 text-[13px] font-extrabold"
@@ -359,14 +456,15 @@ export default async function AtracoesPage({
 
             <div className="flex gap-1 rounded-full border border-stroke bg-white/[0.04] p-1">
               {[
-                { fam: false, label: "Minha lista" },
-                { fam: true, label: "Família" },
+                { v: "minha", label: "Minha lista" },
+                { v: "familia", label: "Família" },
+                { v: "criancas", label: "Crianças" },
               ].map((t) => (
                 <Link
-                  key={t.label}
-                  href={href(parque.code, t.fam)}
+                  key={t.v}
+                  href={href(parque.code, t.v)}
                   className={`flex-1 rounded-full py-[7px] text-center text-[12.5px] font-extrabold ${
-                    familia === t.fam ? "bg-white/[0.1] text-ink" : "text-ink-faint"
+                    aba === t.v ? "bg-white/[0.1] text-ink" : "text-ink-faint"
                   }`}
                 >
                   {t.label}
@@ -375,7 +473,24 @@ export default async function AtracoesPage({
             </div>
           </section>
 
-          {familia ? (
+          {dasCriancas ? (
+            <>
+              <SeletorCrianca
+                criancas={dasCriancas.criancas}
+                ativa={criancaAtiva?.id ?? null}
+                href={(id) => href(parque.code, "criancas", id)}
+              />
+              <ListaCriancas
+                itens={dasCriancas.itens}
+                criancas={dasCriancas.criancas}
+                crianca={criancaAtiva}
+                parque={parque.code}
+                cor={cor}
+                nomeParque={nomeParque}
+                admin={session.user.papel === "admin"}
+              />
+            </>
+          ) : familia ? (
             <section className="flex flex-col gap-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1">

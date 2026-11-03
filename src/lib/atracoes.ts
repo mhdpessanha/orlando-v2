@@ -113,3 +113,31 @@ export function resumoCriancas(alturaMinCm: number | null, criancas: Crianca[]):
 export function precisaTroca(alturaMinCm: number | null, criancas: Crianca[]): boolean {
   return criancasNaAltura(alturaMinCm, criancas).naoPodem.length > 0;
 }
+
+// ── Lista das crianças: cada criança vê (e os pais dão nota em) só o que ela alcança ──
+
+// Abaixo disto, "no limite": alcança por pouco. Os parques medem de tênis e a criança
+// cresce até janeiro, mas o funcionário mede na hora e não tem choro.
+export const MARGEM_CM = 3;
+
+// Faixa aceita no campo de altura do site (cm)
+export const ALTURA_MIN_CM = 50;
+export const ALTURA_MAX_CM = 170;
+
+// Pode ir? Sem altura mínima, sim. Com altura mínima, só quem já tem altura e alcança
+// (sem a altura, fica de fora até medir — não pergunta de TRON pro Bernardo).
+export function criancaPode(alturaMinCm: number | null, alturaCm: number | null): boolean {
+  return alturaMinCm === null || (alturaCm !== null && alturaCm >= alturaMinCm);
+}
+
+export function noLimite(alturaMinCm: number | null, alturaCm: number | null): boolean {
+  return alturaMinCm !== null && alturaCm !== null && alturaCm >= alturaMinCm && alturaCm - alturaMinCm < MARGEM_CM;
+}
+
+// Atração da coluna publico = criancas: brinquedo infantil, fora da tier list dos adultos
+export function soCriancas(a: { publico: string | null }): boolean {
+  return a.publico === "criancas";
+}
+
+export const hrefClassificar = (parque: string, criancaId?: string | null) =>
+  `/roteiro/atracoes/classificar?parque=${parque}${criancaId ? `&crianca=${criancaId}` : ""}`;

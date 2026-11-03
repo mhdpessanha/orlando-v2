@@ -13,12 +13,14 @@ import {
   UsersIcon,
 } from "@/components/icons";
 import Avatar from "@/components/Avatar";
+import { hrefClassificar } from "@/lib/atracoes";
 import { getSession } from "@/lib/auth";
 import { avatarDaPessoa } from "@/lib/caricaturas";
 import { chipPrazo, diaNumero, diaSemanaCurto, diaMes } from "@/lib/format";
 import { PARQUE_INFO } from "@/lib/parques";
 import {
   getAtracoesResumo,
+  getProgressoCriancas,
   getComprasResumo,
   getDecisoesResumo,
   getHomeData,
@@ -85,14 +87,19 @@ export default async function HomePage() {
     getHomeData(),
     getSession(),
   ]);
-  const [decisoes, compras, atracoes, ida] = session
+  const [decisoes, compras, atracoes, ida, filhos] = session
     ? await Promise.all([
         getDecisoesResumo(session.userId),
         getComprasResumo(session.userId),
         getAtracoesResumo(session.userId),
         getIdaDoGrupo(GRUPO_DO_NUCLEO[session.user.nucleo] ?? "familia"),
+        getProgressoCriancas(session.user.nucleo),
       ])
-    : [null, null, null, null];
+    : [null, null, null, null, []];
+  // card das crianças (só pros pais): continua na primeira com nota faltando
+  const filhoPendente = filhos.find((f) => f.feitas < f.total && f.proximo) ?? null;
+  const nomesFilhos = filhos.map((f) => f.crianca.nome).join(" e ");
+  const semAltura = filhos.filter((f) => f.crianca.alturaCm === null).map((f) => f.crianca.nome);
   const atracoesFaltam = atracoes ? atracoes.total - atracoes.minhas : 0;
   const pessoas = await getPessoas();
   const indices = indicePorNucleo(pessoas);
@@ -228,6 +235,45 @@ export default async function HomePage() {
             height={15}
             className={`shrink-0 ${atracoesFaltam > 0 ? "text-gold-light" : "text-ink-faint"}`}
           />
+        </Link>
+      )}
+
+      {filhos.length > 0 && (
+        <Link
+          href={
+            filhoPendente
+              ? hrefClassificar(filhoPendente.proximo!, filhoPendente.crianca.id)
+              : "/roteiro/atracoes?ver=criancas"
+          }
+          className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]"
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center">
+            {filhos.map((f, i) => (
+              <Avatar
+                key={f.crianca.id}
+                a={f.crianca.a}
+                size={filhos.length > 1 ? 30 : 40}
+                className={`border-2 border-night-mid ${i > 0 ? "-ml-[16px] mt-3" : "-mt-2"}`}
+              />
+            ))}
+          </div>
+          <div className="flex grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">
+              {filhos.every((f) => f.feitas === 0)
+                ? `Mostra os vídeos das atrações pra ${nomesFilhos}`
+                : filhoPendente
+                  ? filhos.map((f) => `${f.crianca.nome} ${f.feitas} de ${f.total}`).join(" · ")
+                  : `${nomesFilhos} já ${filhos.length > 1 ? "deram" : "deu"} nota em tudo`}
+            </span>
+            <span className="text-[12px] text-ink-muted">
+              {semAltura.length > 0
+                ? `falta a altura de ${semAltura.join(" e ")} — dá pra colocar lá`
+                : filhoPendente
+                  ? `continuar com ${filhoPendente.crianca.nome} no ${PARQUE_INFO[filhoPendente.proximo!]?.nome ?? filhoPendente.proximo}`
+                  : "ver o ranking das crianças"}
+            </span>
+          </div>
+          <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
         </Link>
       )}
 

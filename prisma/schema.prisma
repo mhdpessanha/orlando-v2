@@ -21,6 +21,7 @@ model User {
   checklistTicks    ChecklistTick[]
   wishItems         WishItem[]
   attractionRatings AttractionRating[]
+  childRatings      ChildRating[]
 }
 
 model Session {
@@ -233,6 +234,7 @@ model Attraction {
   filaRapida  String?
   duracaoMin  Int?
   detalhes    String?
+  publico     String? // coluna opcional: "criancas" = só na lista das crianças; vazio = todos
   // cache local da foto (preenchido pelo sync, não vem da planilha)
   fotoOrigem  String? // URL que foi baixada pra data/atracoes/<id>
 
@@ -295,6 +297,21 @@ model AttractionRating {
   updatedAt    DateTime @updatedAt
 
   @@unique([userId, attractionId])
+  @@index([attractionId])
+}
+
+// Nota de cada criança (Turma, tipo crianca), dada pelo pai ou pela mãe do núcleo.
+// Uma por criança/atração: qualquer um dos dois troca, vale o último toque.
+model ChildRating {
+  id           String   @id @default(cuid())
+  personId     String // Person.id da criança (sem FK: a Turma sincroniza sozinha)
+  attractionId String // Attraction.id (sem FK)
+  nota         Int
+  porUserId    String // quem deu a nota pela criança
+  por          User     @relation(fields: [porUserId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([personId, attractionId])
   @@index([attractionId])
 }
 

@@ -1,5 +1,5 @@
 import type { Attraction, Person } from "@prisma/client";
-import type { Crianca } from "./atracoes";
+import { criancaPode, soCriancas } from "./atracoes";
 import { avatarVariant } from "./avatars";
 import { avatarDaPessoa, caricatura, type AvatarInfo } from "./caricaturas";
 import { db } from "./db";
@@ -515,11 +515,64 @@ async function getVotantes() {
 
 type Votante = Awaited<ReturnType<typeof getVotantes>>[number];
 
+type NotaAdulto = { userId: string; attractionId: string; nota: number };
+type NotaCrianca = { personId: string; attractionId: string; nota: number; porUserId: string };
+
+// Criança da Turma com o avatar. `minha` = do núcleo de quem está logado: os pais
+// dão nota por ela e corrigem a altura.
+export type CriancaInfo = {
+  id: string;
+  nome: string;
+  nucleo: string;
+  alturaCm: number | null;
+  a: AvatarInfo;
+  minha: boolean;
+};
+
+// Nota de uma criança numa atração; `por` = quem deu (pai/mãe)
+export type VotoCrianca = { id: string; nome: string; a: AvatarInfo; nota: number; por: string | null };
+
+async function getCriancas(nucleo: string | null): Promise<CriancaInfo[]> {
+  const pessoas = await getPessoas();
+  const indices = indicePorNucleo(pessoas);
+  return pessoas
+    .filter((p) => p.tipo === "crianca")
+    .map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      nucleo: p.nucleo,
+      alturaCm: p.alturaCm,
+      a: avatarDaPessoa(p, indices.get(p.id) ?? 0),
+      minha: nucleo !== null && p.nucleo === nucleo,
+    }));
+}
+
+function mediaDe(votos: { nota: number }[]): number | null {
+  return votos.length > 0 ? votos.reduce((acc, v) => acc + v.nota, 0) / votos.length : null;
+}
+
+// Notas das crianças que alcançam a atração (se a altura mudou e ela não alcança
+// mais, a nota antiga não conta).
+function votosCriancas(
+  atracao: Attraction,
+  notas: NotaCrianca[],
+  criancas: CriancaInfo[],
+  nomes: Map<string, string>,
+): VotoCrianca[] {
+  return criancas.flatMap((c) => {
+    if (!criancaPode(atracao.alturaMinCm, c.alturaCm)) return [];
+    const n = notas.find((x) => x.attractionId === atracao.id && x.personId === c.id);
+    return n ? [{ id: c.id, nome: c.nome, a: c.a, nota: n.nota, por: nomes.get(n.porUserId) ?? null }] : [];
+  });
+}
+
+// Visão dos adultos: média só dos adultos; as notas das crianças vão junto, à parte.
 function decorarAtracao(
   atracao: Attraction,
-  notas: { userId: string; attractionId: string; nota: number }[],
+  notas: NotaAdulto[],
   votantes: Votante[],
   userId: string,
+  criancas: VotoCrianca[],
 ) {
   const daAtracao = notas.filter((n) => n.attractionId === atracao.id);
   const votos = votantes.flatMap((v) => {
@@ -530,17 +583,39 @@ function decorarAtracao(
     atracao,
     minhaNota: daAtracao.find((n) => n.userId === userId)?.nota ?? null,
     votos,
-    media: votos.length > 0 ? votos.reduce((acc, v) => acc + v.nota, 0) / votos.length : null,
+    media: mediaDe(votos),
     imperdiveis: votos.filter((v) => v.nota === 3).length,
     faltam: votantes.filter((v) => !votos.some((x) => x.id === v.id)).map((v) => v.nome),
+    criancas,
   };
 }
 
 export type AtracaoDecorada = ReturnType<typeof decorarAtracao>;
 
-// Ranking da família: maior média primeiro; empate → mais "imperdível" → ordem da planilha.
-// Sem nenhum voto vai pro fim.
-export function rankingFamilia(itens: AtracaoDecorada[]): AtracaoDecorada[] {
+// Visão das crianças: quem alcança, as notas delas e a média só delas.
+function decorarCriancas(
+  atracao: Attraction,
+  notas: NotaCrianca[],
+  criancas: CriancaInfo[],
+  nomes: Map<string, string>,
+) {
+  const votos = votosCriancas(atracao, notas, criancas, nomes);
+  return {
+    atracao,
+    podem: criancas.filter((c) => criancaPode(atracao.alturaMinCm, c.alturaCm)).map((c) => c.id),
+    votos,
+    media: mediaDe(votos),
+    imperdiveis: votos.filter((v) => v.nota === 3).length,
+  };
+}
+
+export type AtracaoCriancas = ReturnType<typeof decorarCriancas>;
+
+// Ranking: maior média primeiro; empate → mais "imperdível" → ordem da planilha.
+// Sem nenhum voto vai pro fim. Serve pros adultos e pras crianças.
+export function rankingFamilia<T extends { media: number | null; imperdiveis: number; atracao: { ordem: number } }>(
+  itens: T[],
+): T[] {
   return [...itens].sort(
     (a, b) =>
       (b.media ?? -1) - (a.media ?? -1) ||
@@ -549,19 +624,35 @@ export function rankingFamilia(itens: AtracaoDecorada[]): AtracaoDecorada[] {
   );
 }
 
-export async function getAtracoes(userId: string, parqueSel?: string) {
-  const [atracoes, notas, votantes, dias, pessoas] = await Promise.all([
+async function carregarAtracoes(nucleo: string | null) {
+  const [atracoes, notas, notasCriancas, votantes, dias, criancas] = await Promise.all([
     db.attraction.findMany({ orderBy: [{ ordem: "asc" }, { id: "asc" }] }),
     db.attractionRating.findMany({ select: { userId: true, attractionId: true, nota: true } }),
+    db.childRating.findMany({ select: { personId: true, attractionId: true, nota: true, porUserId: true } }),
     getVotantes(),
     db.day.findMany({ select: { data: true, parqueCode: true } }),
-    getPessoas(),
+    getCriancas(nucleo),
   ]);
+  const nomes = new Map(votantes.map((v) => [v.id, v.nome]));
+  return { atracoes, notas, notasCriancas, votantes, dias, criancas, nomes };
+}
 
-  const criancas: Crianca[] = pessoas
-    .filter((p) => p.tipo === "crianca")
-    .map((p) => ({ nome: p.nome, alturaCm: p.alturaCm }));
-  const minhas = new Set(notas.filter((n) => n.userId === userId).map((n) => n.attractionId));
+function diasDoParque(dias: { data: string; parqueCode: string | null }[], code: string): string[] {
+  return dias
+    .filter((d) => d.parqueCode === code)
+    .map((d) => d.data)
+    .sort();
+}
+
+type Usuario = { id: string; nucleo: string };
+
+// Tier list dos adultos (sem os brinquedos só de criança).
+export async function getAtracoes(user: Usuario, parqueSel?: string) {
+  const { atracoes: todas, notas, notasCriancas, votantes, dias, criancas, nomes } = await carregarAtracoes(
+    user.nucleo,
+  );
+  const atracoes = todas.filter((a) => !soCriancas(a));
+  const minhas = new Set(notas.filter((n) => n.userId === user.id).map((n) => n.attractionId));
 
   const parques = ordenarParques(
     atracoes.map((a) => a.parqueCode),
@@ -572,10 +663,7 @@ export async function getAtracoes(userId: string, parqueSel?: string) {
       code,
       total: doParque.length,
       minhas: doParque.filter((a) => minhas.has(a.id)).length,
-      dias: dias
-        .filter((d) => d.parqueCode === code)
-        .map((d) => d.data)
-        .sort(),
+      dias: diasDoParque(dias, code),
     };
   });
   // parque pedido; senão o primeiro com nota faltando; senão o primeiro do roteiro
@@ -586,7 +674,11 @@ export async function getAtracoes(userId: string, parqueSel?: string) {
     parques,
     parque,
     itens: parque
-      ? atracoes.filter((a) => a.parqueCode === parque.code).map((a) => decorarAtracao(a, notas, votantes, userId))
+      ? atracoes
+          .filter((a) => a.parqueCode === parque.code)
+          .map((a) =>
+            decorarAtracao(a, notas, votantes, user.id, votosCriancas(a, notasCriancas, criancas, nomes)),
+          )
       : [],
     criancas,
     totalVotantes: votantes.length,
@@ -595,24 +687,99 @@ export async function getAtracoes(userId: string, parqueSel?: string) {
   };
 }
 
-// Todas as atrações (todos os parques) no ranking da família — pro assistente.
-// As notas de cada um já são públicas no site (aba Família), então vão junto.
-export async function getAtracoesComNotas() {
-  const [atracoes, notas, votantes] = await Promise.all([
-    db.attraction.findMany({ orderBy: [{ ordem: "asc" }, { id: "asc" }] }),
-    db.attractionRating.findMany({ select: { userId: true, attractionId: true, nota: true } }),
-    getVotantes(),
+// Lista das crianças: todas as atrações (inclusive as só de criança) que alguma
+// delas alcança. Com `criancaSel`, o progresso é o daquela criança; sem, o de todas
+// juntas (cada par criança × atração que ela alcança).
+export async function getAtracoesCriancas(user: Usuario, parqueSel?: string, criancaSel?: string) {
+  const { atracoes, notasCriancas, dias, criancas, nomes } = await carregarAtracoes(user.nucleo);
+  const crianca = criancas.find((c) => c.id === criancaSel) ?? null;
+  const grupo = crianca ? [crianca] : criancas;
+  const feitas = new Set(notasCriancas.map((n) => `${n.personId}|${n.attractionId}`));
+  const naLista = atracoes.filter((a) => grupo.some((c) => criancaPode(a.alturaMinCm, c.alturaCm)));
+
+  const parques = ordenarParques(
+    naLista.map((a) => a.parqueCode),
+    dias,
+  ).map((code) => {
+    let total = 0;
+    let comNota = 0;
+    for (const a of naLista) {
+      if (a.parqueCode !== code) continue;
+      for (const c of grupo) {
+        if (!criancaPode(a.alturaMinCm, c.alturaCm)) continue;
+        total++;
+        if (feitas.has(`${c.id}|${a.id}`)) comNota++;
+      }
+    }
+    return { code, total, minhas: comNota, dias: diasDoParque(dias, code) };
+  });
+  const parque =
+    parques.find((p) => p.code === parqueSel) ?? parques.find((p) => p.minhas < p.total) ?? parques[0] ?? null;
+
+  return {
+    parques,
+    parque,
+    crianca,
+    criancas,
+    itens: parque
+      ? atracoes
+          .filter((a) => a.parqueCode === parque.code)
+          .map((a) => decorarCriancas(a, notasCriancas, criancas, nomes))
+      : [],
+    total: parques.reduce((s, p) => s + p.total, 0),
+    comNota: parques.reduce((s, p) => s + p.minhas, 0),
+  };
+}
+
+// Progresso de cada criança do núcleo de quem está logado (card dos pais).
+export async function getProgressoCriancas(nucleo: string) {
+  const [atracoes, notas, dias, criancas] = await Promise.all([
+    db.attraction.findMany({ select: { id: true, parqueCode: true, alturaMinCm: true } }),
+    db.childRating.findMany({ select: { personId: true, attractionId: true } }),
+    db.day.findMany({ select: { data: true, parqueCode: true } }),
+    getCriancas(nucleo),
   ]);
-  return rankingFamilia(atracoes.map((a) => decorarAtracao(a, notas, votantes, "")));
+  const minhas = criancas.filter((c) => c.minha);
+  if (minhas.length === 0 || atracoes.length === 0) return [];
+  const ordem = ordenarParques(
+    atracoes.map((a) => a.parqueCode),
+    dias,
+  );
+  return minhas.map((c) => {
+    const lista = atracoes.filter((a) => criancaPode(a.alturaMinCm, c.alturaCm));
+    const feitas = new Set(notas.filter((n) => n.personId === c.id).map((n) => n.attractionId));
+    return {
+      crianca: c,
+      total: lista.length,
+      feitas: lista.filter((a) => feitas.has(a.id)).length,
+      proximo: ordem.find((code) => lista.some((a) => a.parqueCode === code && !feitas.has(a.id))) ?? null,
+    };
+  });
+}
+
+// Todas as atrações (todos os parques) com as notas — pro assistente. As notas de
+// cada um (adultos e crianças) já são públicas no site, então vão junto.
+export async function getAtracoesComNotas() {
+  const { atracoes, notas, notasCriancas, votantes, criancas, nomes } = await carregarAtracoes(null);
+  const adultos = rankingFamilia(
+    atracoes
+      .filter((a) => !soCriancas(a))
+      .map((a) => decorarAtracao(a, notas, votantes, "", votosCriancas(a, notasCriancas, criancas, nomes))),
+  );
+  const infantis = rankingFamilia(
+    atracoes.filter(soCriancas).map((a) => decorarCriancas(a, notasCriancas, criancas, nomes)),
+  );
+  return { adultos, infantis, criancas };
 }
 
 // Resumo pro card da home: quantas já têm a minha nota e onde continuar.
 export async function getAtracoesResumo(userId: string) {
-  const [atracoes, minhas, dias] = await Promise.all([
-    db.attraction.findMany({ select: { id: true, parqueCode: true } }),
+  const [todas, minhas, dias] = await Promise.all([
+    db.attraction.findMany({ select: { id: true, parqueCode: true, publico: true } }),
     db.attractionRating.findMany({ where: { userId }, select: { attractionId: true } }),
     db.day.findMany({ select: { data: true, parqueCode: true } }),
   ]);
+  const atracoes = todas.filter((a) => !soCriancas(a));
   if (atracoes.length === 0) return null;
   const feitas = new Set(minhas.map((m) => m.attractionId));
   const parques = ordenarParques(

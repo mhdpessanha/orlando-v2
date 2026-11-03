@@ -251,4 +251,7 @@ export const atracoesSchema = z.object({
   fila_rapida: opt,
   duracao_min: intOpt,
   detalhes: opt,
+  // vazio/"todos" = lista de todo mundo; "criancas" = só na lista das crianças
+  // (brinquedo infantil que fica fora da tier list dos adultos)
+  publico: enumOpt(["todos", "criancas"] as const).transform((v) => (v === "todos" ? null : v)),
 });

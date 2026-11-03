@@ -233,40 +233,63 @@ async function secaoDecisoes(): Promise<string> {
 }
 
 async function secaoAtracoes(): Promise<string> {
-  const [ranking, pessoas] = await Promise.all([getAtracoesComNotas(), getPessoas()]);
-  if (ranking.length === 0) return "";
-  const criancas = pessoas.filter((p) => p.tipo === "crianca").map((p) => ({ nome: p.nome, alturaCm: p.alturaCm }));
+  const { adultos, infantis, criancas } = await getAtracoesComNotas();
+  if (adultos.length === 0 && infantis.length === 0) return "";
+  const notasTexto = (votos: { nome: string; nota: number }[]) =>
+    NOTAS.map((n) => {
+      const quem = votos.filter((v) => v.nota === n.valor).map((v) => v.nome);
+      return quem.length ? `${n.label}: ${quem.join(", ")}` : null;
+    })
+      .filter(Boolean)
+      .join("; ");
+  const alturaTexto = (alturaMinCm: number | null) => {
+    if (alturaMinCm === null) return "sem altura mínima";
+    const alt = criancasNaAltura(alturaMinCm, criancas);
+    return `altura mínima ${alturaM(alturaMinCm)}${alt.podem.length ? ` (alcançam: ${alt.podem.map((c) => c.nome).join(", ")})` : ""}${
+      alt.naoPodem.length ? ` (não alcançam: ${alt.naoPodem.map((c) => c.nome).join(", ")})` : ""
+    }`;
+  };
   const linhas = [
-    "## Atrações (tier list da família; notas: 3 Imperdível, 2 Quero muito, 1 Se der, 0 Passo; em cada parque, do topo do ranking pra baixo)",
+    "## Atrações (tier list; notas: 3 Imperdível, 2 Quero muito, 1 Se der, 0 Passo. Em cada parque, primeiro a lista dos adultos, do topo do ranking deles pra baixo — a média é só dos adultos. As notas das crianças foram dadas pelos pais, vendo o vídeo com elas, e vêm à parte. Depois vêm os brinquedos que estão só na lista das crianças, do topo do ranking delas.)",
   ];
-  const parques = [...new Set(ranking.map((r) => r.atracao.parqueCode))];
+  const parques = [...new Set([...adultos, ...infantis].map((r) => r.atracao.parqueCode))];
   for (const code of parques) {
     linhas.push(`### ${parque(code)}`);
-    for (const r of ranking.filter((x) => x.atracao.parqueCode === code)) {
+    for (const r of adultos.filter((x) => x.atracao.parqueCode === code)) {
       const a = r.atracao;
-      const alt = criancasNaAltura(a.alturaMinCm, criancas);
-      const altura =
-        a.alturaMinCm === null
-          ? "sem altura mínima"
-          : `altura mínima ${alturaM(a.alturaMinCm)}${alt.podem.length ? ` (alcançam: ${alt.podem.map((c) => c.nome).join(", ")})` : ""}${
-              alt.naoPodem.length ? ` (não alcançam: ${alt.naoPodem.map((c) => c.nome).join(", ")})` : ""
-            }`;
-      const notas = NOTAS.map((n) => {
-        const quem = r.votos.filter((v) => v.nota === n.valor).map((v) => v.nome);
-        return quem.length ? `${n.label}: ${quem.join(", ")}` : null;
-      }).filter(Boolean);
       linhas.push(
         item(a.nome, [
           ["tipo", tipoLabel(a.tipo)],
           ["área", a.area],
-          ["altura", altura],
+          ["altura", alturaTexto(a.alturaMinCm)],
           ["alertas", parseAlertas(a.alertas).join(", ")],
           ["fila rápida", a.filaRapida],
           ["duração", a.duracaoMin ? `${a.duracaoMin} min` : null],
           ["média da família", r.media !== null ? r.media.toFixed(1).replace(".", ",") : "sem notas ainda"],
-          ["notas", notas.join("; ")],
+          ["notas", notasTexto(r.votos)],
+          ["notas das crianças", notasTexto(r.criancas)],
           ["descrição", a.descricao],
           ["detalhes", a.detalhes],
+        ]),
+      );
+    }
+    const doParque = infantis.filter((x) => x.atracao.parqueCode === code);
+    if (doParque.length === 0) continue;
+    // sem "detalhes" aqui: o prompt passaria de 100 mil tokens (preço do Haiku dobra)
+    linhas.push(`### ${parque(code)} — só na lista das crianças`);
+    for (const r of doParque) {
+      const a = r.atracao;
+      linhas.push(
+        item(a.nome, [
+          ["tipo", tipoLabel(a.tipo)],
+          ["área", a.area],
+          ["altura", alturaTexto(a.alturaMinCm)],
+          ["alertas", parseAlertas(a.alertas).join(", ")],
+          ["fila rápida", a.filaRapida],
+          ["duração", a.duracaoMin ? `${a.duracaoMin} min` : null],
+          ["média das crianças", r.media !== null ? r.media.toFixed(1).replace(".", ",") : "sem notas ainda"],
+          ["notas das crianças", notasTexto(r.votos)],
+          ["descrição", a.descricao],
         ]),
       );
     }

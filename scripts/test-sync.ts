@@ -189,6 +189,25 @@ async function main() {
   assert.equal(r3.ok, true);
   assert.equal(await db.agendaItem.count(), 3);
 
+  // ── 4º sync: coluna opcional publico (atrações só da lista das crianças) ──
+  const comPublico: Fixture = structuredClone(FIXTURE_OK);
+  comPublico.Atracoes = [
+    [...FIXTURE_OK.Atracoes[0], "publico"],
+    [...FIXTURE_OK.Atracoes[1], "todos"],
+    [...FIXTURE_OK.Atracoes[2], ""],
+    ["mk-dumbo", "MK", "3", "Dumbo the Flying Elephant", "Passeio", "", "", "", "Crianças"],
+  ];
+  const r4 = await runSync("teste-publico", fetcherDe(comPublico));
+  assert.equal(r4.abas.find((a) => a.aba === "Atracoes")?.status, "ok");
+  assert.equal((await db.attraction.findUniqueOrThrow({ where: { id: "mk-dumbo" } })).publico, "criancas", "Crianças → criancas");
+  assert.equal((await db.attraction.findUniqueOrThrow({ where: { id: "mk-tron" } })).publico, null, "todos → null");
+  assert.equal((await db.attraction.findUniqueOrThrow({ where: { id: "mk-pirates" } })).publico, null, "vazio → null");
+  comPublico.Atracoes[3] = [...comPublico.Atracoes[3].slice(0, 8), "kids"];
+  const r5 = await runSync("teste-publico-invalido", fetcherDe(comPublico));
+  const abaR5 = r5.abas.find((a) => a.aba === "Atracoes")!;
+  assert.equal(abaR5.status, "erro");
+  assert.match(abaR5.erro!, /publico/);
+
   console.log("✓ pipeline de sync: parse, validação, espelho, falha isolada e SyncLog — tudo ok");
 }
 

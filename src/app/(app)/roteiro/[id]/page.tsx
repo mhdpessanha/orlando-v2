@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
-import { precisaTroca, trocaLabel } from "@/lib/atracoes";
+import { hrefClassificar, notaInfo, precisaTroca, trocaLabel } from "@/lib/atracoes";
 import { avatarDaPessoa } from "@/lib/caricaturas";
 import {
   aniversarioAno,
@@ -15,7 +15,14 @@ import {
   tituloDia,
 } from "@/lib/format";
 import { hexRgba, PARQUE_INFO, PERIODO_INFO } from "@/lib/parques";
-import { getAtracoes, getDiaDetalhe, indicePorNucleo, pessoasDoDia, rankingFamilia } from "@/lib/queries";
+import {
+  getAtracoes,
+  getAtracoesCriancas,
+  getDiaDetalhe,
+  indicePorNucleo,
+  pessoasDoDia,
+  rankingFamilia,
+} from "@/lib/queries";
 
 export const metadata = { title: "Roteiro · Orlando 2027" };
 
@@ -25,14 +32,24 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
   if (!detalhe) notFound();
   const { dia, agenda, estadias, numeroDoDia, totalDias, anterior, proximo, pessoas } = detalhe;
   const session = await getSession();
-  const atracoes =
-    dia.parqueCode && session ? await getAtracoes(session.userId, dia.parqueCode) : null;
+  const [atracoes, dasCriancas] =
+    dia.parqueCode && session
+      ? await Promise.all([
+          getAtracoes(session.user, dia.parqueCode),
+          getAtracoesCriancas(session.user, dia.parqueCode),
+        ])
+      : [null, null];
   const doParque = atracoes?.parque?.code === dia.parqueCode ? atracoes : null;
   const imperdiveis = doParque
     ? rankingFamilia(doParque.itens)
         .filter((i) => i.media !== null)
         .slice(0, 5)
     : [];
+  const criancasDoParque = dasCriancas?.parque?.code === dia.parqueCode ? dasCriancas : null;
+  const queridasDasCriancas = criancasDoParque
+    ? rankingFamilia(criancasDoParque.itens.filter((i) => i.podem.length > 0 && i.media !== null)).slice(0, 5)
+    : [];
+  const meusFilhos = criancasDoParque?.criancas.filter((c) => c.minha) ?? [];
 
   const parque = dia.parqueCode ? PARQUE_INFO[dia.parqueCode] : null;
   const aniversariantes = pessoas.filter(
@@ -256,6 +273,60 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
                 ? "falta 1 nota sua neste parque"
                 : `faltam ${doParque.parque.total - doParque.parque.minhas} notas suas neste parque`}
             </Link>
+          )}
+        </div>
+      )}
+
+      {criancasDoParque && parque && (queridasDasCriancas.length > 0 || meusFilhos.length > 0) && (
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-end justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-[2.5px] text-ink-faint">
+              As crianças querem
+            </span>
+            <Link
+              href={`/roteiro/atracoes?parque=${dia.parqueCode}&ver=criancas`}
+              className="flex items-center gap-1 text-[11.5px] font-extrabold text-gold-light"
+            >
+              ranking delas
+              <ChevronRightIcon width={13} height={13} strokeWidth={2.2} />
+            </Link>
+          </div>
+          {queridasDasCriancas.length === 0 ? (
+            <Link
+              href={hrefClassificar(dia.parqueCode!, meusFilhos[0].id)}
+              className="flex items-center gap-3.5 rounded-card border border-stroke bg-surface px-4 py-[15px]"
+            >
+              <StarIcon width={20} height={20} className="shrink-0 text-lavanda" />
+              <span className="grow text-[13px] text-ink-muted">
+                Nenhuma criança tem nota no {parque.nome} ainda — mostra os vídeos pra{" "}
+                {meusFilhos.map((c) => c.nome).join(" e ")}.
+              </span>
+              <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
+            </Link>
+          ) : (
+            <div className="flex flex-col divide-y divide-[rgba(255,255,255,0.08)] rounded-card border border-stroke bg-surface">
+              {queridasDasCriancas.map((i, n) => (
+                <div key={i.atracao.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className={`w-4 font-display text-[15px] font-semibold ${n < 3 ? "text-gold-light" : "text-ink-faint"}`}>
+                    {n + 1}
+                  </span>
+                  <span className="min-w-0 grow truncate text-[13.5px] font-extrabold">{i.atracao.nome}</span>
+                  <span className="flex shrink-0 gap-[6px]">
+                    {i.votos
+                      .filter((v) => v.nota > 0)
+                      .sort((x, y) => y.nota - x.nota)
+                      .map((v) => (
+                        <Avatar
+                          key={v.id}
+                          a={{ ...v.a, nome: `${v.nome}: ${notaInfo(v.nota).label}` }}
+                          size={20}
+                          style={{ boxShadow: `0 0 0 1.5px #101641, 0 0 0 3px ${notaInfo(v.nota).cor}` }}
+                        />
+                      ))}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

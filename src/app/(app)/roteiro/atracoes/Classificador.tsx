@@ -4,16 +4,30 @@ import Link from "next/link";
 import { useCallback, useState, useTransition } from "react";
 import type { Attraction } from "@prisma/client";
 import { Folha } from "@/components/Detalhe";
+import Avatar from "@/components/Avatar";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, PlayIcon, RulerIcon, SparkleIcon } from "@/components/icons";
-import { resumoCriancas, tipoLabel, type Crianca, type Nota } from "@/lib/atracoes";
+import type { AvatarInfo } from "@/lib/caricaturas";
+import {
+  alturaM,
+  hrefClassificar,
+  noLimite,
+  resumoCriancas,
+  tipoLabel,
+  youtubeId,
+  type Crianca,
+  type Nota,
+} from "@/lib/atracoes";
 import { hexRgba } from "@/lib/parques";
-import { avaliarAtracaoAction } from "./actions";
+import { avaliarAtracaoAction, avaliarPelaCriancaAction } from "./actions";
 import { GradeNotas } from "./BotoesNota";
 import DetalheAtracao, { Alertas } from "./DetalheAtracao";
+import EditarAltura from "./EditarAltura";
 import FotoAtracao from "./FotoAtracao";
 import TrilhaParques from "./TrilhaParques";
 
 type Parque = { code: string; nome: string; cor: string; minhas: number; total: number };
+
+type CriancaVotando = { id: string; nome: string; a: AvatarInfo; alturaCm: number | null };
 
 type Props = {
   parque: string; // code do parque aberto
@@ -21,14 +35,24 @@ type Props = {
   itens: { a: Attraction; foto: string | null }[];
   notasIniciais: Record<string, number>;
   criancas: Crianca[];
+  // com criança: o pai/mãe dá a nota dela (só o que ela alcança; vídeo já no card)
+  crianca?: CriancaVotando;
+  comAlturaMinima?: number; // criança sem altura: quantas do parque ficaram de fora
 };
-
-const hrefClassificar = (code: string) => `/roteiro/atracoes/classificar?parque=${code}`;
 
 // Modo rápido: uma atração por vez, 4 botões grandes. Cada toque salva no
 // servidor e pula pra próxima sem nota. A trilha no topo mostra todos os
 // parques e troca de parque a qualquer momento.
-export default function Classificador({ parque, parques, itens, notasIniciais, criancas }: Props) {
+export default function Classificador({
+  parque,
+  parques,
+  itens,
+  notasIniciais,
+  criancas,
+  crianca,
+  comAlturaMinima = 0,
+}: Props) {
+  const hrefParque = (code: string) => hrefClassificar(code, crianca?.id);
   const [notas, setNotas] = useState<Record<string, number>>(notasIniciais);
   // puladas nesta visita: não voltam no giro até a pessoa pedir
   const [pulados, setPulados] = useState<Set<string>>(() => new Set());
@@ -83,7 +107,9 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
     irPara(revisando ? seguinte(idx) : proximaSemNota(idx, novas, pulados));
     const volta = idx;
     startTransition(async () => {
-      const r = await avaliarAtracaoAction(id, nota);
+      const r = crianca
+        ? await avaliarPelaCriancaAction(crianca.id, id, nota)
+        : await avaliarAtracaoAction(id, nota);
       if (r.ok) {
         setSalvos((s) => s + 1);
         return;
@@ -124,7 +150,14 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
     <div className="flex flex-col gap-3.5 pt-[18px]">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <Link href={`/roteiro/atracoes?parque=${parque}`} className="flex items-center gap-2.5 text-ink-faint">
+          <Link
+            href={
+              crianca
+                ? `/roteiro/atracoes?parque=${parque}&ver=criancas&crianca=${crianca.id}`
+                : `/roteiro/atracoes?parque=${parque}`
+            }
+            className="flex items-center gap-2.5 text-ink-faint"
+          >
             <ChevronLeftIcon width={20} height={20} strokeWidth={2} />
             <span className="text-[12px] font-extrabold tracking-[2px]">ATRAÇÕES</span>
           </Link>
@@ -132,7 +165,35 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
             {minhasGeral} de {totalGeral} no total
           </span>
         </div>
-        <TrilhaParques parques={vivos} ativo={parque} href={hrefClassificar} />
+        {crianca && (
+          <div className="flex flex-col gap-2.5 rounded-card border border-lavanda/30 bg-lavanda/[0.08] p-3">
+            <div className="flex items-center gap-3">
+              <Avatar a={crianca.a} size={40} />
+              <div className="flex min-w-0 flex-col">
+                <span className="text-[14.5px] font-extrabold">Notas de {crianca.nome}</span>
+                <span className="text-[12px] leading-snug text-ink-muted">
+                  mostra o vídeo e deixa escolher
+                  {crianca.alturaCm !== null ? ` · só o que alcança com ${alturaM(crianca.alturaCm)}` : ""}
+                </span>
+              </div>
+            </div>
+            {crianca.alturaCm === null && (
+              <>
+                <span className="text-[12px] leading-relaxed text-ink-soft">
+                  Sem a altura, aparecem só as atrações sem altura mínima
+                  {comAlturaMinima > 0 ? ` — outras ${comAlturaMinima} deste parque têm` : ""}.
+                </span>
+                <EditarAltura crianca={crianca} podeEditar />
+              </>
+            )}
+          </div>
+        )}
+        <TrilhaParques
+          parques={vivos}
+          ativo={parque}
+          href={hrefParque}
+          quem={crianca ? `notas de ${crianca.nome}` : undefined}
+        />
         <div className="flex flex-col gap-2">
           <div className="flex items-end justify-between gap-3">
             <h1 className="font-display text-[24px] font-semibold leading-[1.1]">{info.nome}</h1>
@@ -161,18 +222,28 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
             key={atual.a.id}
             className="animate-rise flex flex-col overflow-hidden rounded-card-lg border border-stroke bg-surface"
           >
-            <button
-              type="button"
-              onClick={() => setFolha(true)}
-              aria-label={`Ver vídeo e detalhes de ${atual.a.nome}`}
-              className="relative block w-full"
-            >
-              <FotoAtracao src={atual.foto} cor={info.cor} alt={atual.a.nome} className="aspect-[5/2] w-full" />
-              <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-[rgba(7,11,38,0.72)] px-3 py-1.5 text-[12px] font-extrabold text-ink backdrop-blur">
-                <PlayIcon width={15} height={15} className="text-gold-light" />
-                {atual.a.videoUrl ? "ver vídeo e detalhes" : "ver detalhes"}
-              </span>
-            </button>
+            {crianca && youtubeId(atual.a.videoUrl) ? (
+              <iframe
+                className="aspect-video w-full bg-black"
+                src={`https://www.youtube-nocookie.com/embed/${youtubeId(atual.a.videoUrl)}?rel=0&playsinline=1`}
+                title={`Vídeo: ${atual.a.nome}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setFolha(true)}
+                aria-label={`Ver vídeo e detalhes de ${atual.a.nome}`}
+                className="relative block w-full"
+              >
+                <FotoAtracao src={atual.foto} cor={info.cor} alt={atual.a.nome} className="aspect-[5/2] w-full" />
+                <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-[rgba(7,11,38,0.72)] px-3 py-1.5 text-[12px] font-extrabold text-ink backdrop-blur">
+                  <PlayIcon width={15} height={15} className="text-gold-light" />
+                  {atual.a.videoUrl ? "ver vídeo e detalhes" : "ver detalhes"}
+                </span>
+              </button>
+            )}
             <div className="flex flex-col gap-2 p-4 pt-3.5">
               <span className="text-[10.5px] font-extrabold uppercase tracking-[2px] text-ink-faint">
                 {[tipoLabel(atual.a.tipo), atual.a.area].filter(Boolean).join(" · ")}
@@ -183,9 +254,27 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
               )}
               <span className="flex items-center gap-1.5 text-[12px] font-bold text-ink-muted">
                 <RulerIcon width={14} height={14} className="shrink-0 text-lavanda" />
-                {resumoCriancas(atual.a.alturaMinCm, criancas)}
+                {crianca
+                  ? atual.a.alturaMinCm === null
+                    ? "sem altura mínima"
+                    : `mín. ${alturaM(atual.a.alturaMinCm)}`
+                  : resumoCriancas(atual.a.alturaMinCm, criancas)}
+                {crianca && noLimite(atual.a.alturaMinCm, crianca.alturaCm) && (
+                  <span className="font-extrabold text-gold-light">
+                    · no limite: {crianca.nome} passa por {crianca.alturaCm! - atual.a.alturaMinCm!} cm
+                  </span>
+                )}
               </span>
               <Alertas alertas={atual.a.alertas} />
+              {crianca && (
+                <button
+                  type="button"
+                  onClick={() => setFolha(true)}
+                  className="self-start text-[12px] font-extrabold text-lavanda underline underline-offset-2"
+                >
+                  ver detalhes
+                </button>
+              )}
             </div>
           </div>
 
@@ -228,6 +317,9 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
         </>
       ) : (
         <FimDoParque
+          quem={crianca?.nome ?? null}
+          hrefParque={hrefParque}
+          hrefRanking={`/roteiro/atracoes?parque=${parque}&ver=${crianca ? "criancas" : "familia"}`}
           parque={info}
           faltam={faltam}
           tudo={minhasGeral >= totalGeral}
@@ -247,6 +339,9 @@ export default function Classificador({ parque, parques, itens, notasIniciais, c
 
 // Fim de um parque não é fim da tarefa: puxa pro próximo e lista o que falta.
 function FimDoParque({
+  quem,
+  hrefParque,
+  hrefRanking,
   parque,
   faltam,
   tudo,
@@ -259,6 +354,9 @@ function FimDoParque({
   onVoltarNasPuladas,
   onRevisar,
 }: {
+  quem: string | null; // criança de quem são as notas; null = a própria pessoa
+  hrefParque: (code: string) => string;
+  hrefRanking: string;
   parque: Parque;
   faltam: number; // sem nota neste parque (= as que a pessoa pulou)
   tudo: boolean;
@@ -294,11 +392,17 @@ function FimDoParque({
       )}
 
       <h2 className="font-display text-[22px] font-semibold leading-tight">
-        {tudo ? "Você deu nota em tudo!" : completo ? `${parque.nome} pronto!` : `Fim do ${parque.nome} por agora`}
+        {tudo
+          ? quem
+            ? `${quem} deu nota em tudo!`
+            : "Você deu nota em tudo!"
+          : completo
+            ? `${parque.nome} pronto!`
+            : `Fim do ${parque.nome} por agora`}
       </h2>
       <p className="text-[13px] leading-relaxed text-ink-soft">
         {tudo
-          ? `Suas notas nas ${totalGeral} atrações dos ${nParques} parques estão salvas. Dá pra trocar qualquer uma depois.`
+          ? `${quem ? `As notas de ${quem}` : "Suas notas"} nas ${totalGeral} atrações dos ${nParques} parques estão salvas. Dá pra trocar qualquer uma depois.`
           : completo
             ? `${completos} de ${nParques} parques prontos — ainda faltam ${faltamGeral} atrações nos outros.`
             : `${faltam === 1 ? "Ficou 1 sem nota" : `Ficaram ${faltam} sem nota`} porque você pulou. Dá pra voltar agora ou depois — o resto já está salvo.`}
@@ -306,7 +410,7 @@ function FimDoParque({
 
       {proximo && (
         <Link
-          href={hrefClassificar(proximo.code)}
+          href={hrefParque(proximo.code)}
           className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-gold to-gold-deep px-4 py-3 text-[#2a1c05]"
         >
           <span className="flex flex-col items-center">
@@ -341,7 +445,7 @@ function FimDoParque({
           {outros.map((p) => (
             <Link
               key={p.code}
-              href={hrefClassificar(p.code)}
+              href={hrefParque(p.code)}
               className="flex items-center gap-2.5 border-t border-white/[0.08] py-2.5"
             >
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.cor }} />
@@ -355,18 +459,15 @@ function FimDoParque({
         </div>
       )}
 
-      <Link
-        href={`/roteiro/atracoes?parque=${parque.code}&ver=familia`}
-        className="mt-1 text-[13px] font-extrabold text-gold-light"
-      >
-        ver o ranking da família
+      <Link href={hrefRanking} className="mt-1 text-[13px] font-extrabold text-gold-light">
+        {quem ? "ver o ranking das crianças" : "ver o ranking da família"}
       </Link>
       <button
         type="button"
         onClick={onRevisar}
         className="text-[12px] font-extrabold text-ink-faint underline underline-offset-2"
       >
-        revisar minhas notas deste parque
+        {quem ? `revisar as notas de ${quem} neste parque` : "revisar minhas notas deste parque"}
       </button>
     </div>
   );

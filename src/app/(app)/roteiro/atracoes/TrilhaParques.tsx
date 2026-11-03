@@ -10,19 +10,22 @@ const VOLTA = 2 * Math.PI * R;
 // Todos os parques lado a lado, sem rolar (senão ninguém vê que tem mais de
 // um): anel de progresso na cor do parque, check nos completos, o atual
 // destacado. Um toque troca de parque. Sem hooks — serve no server e no client.
+// `quem` = de quem é o progresso, pro leitor de tela ("sua nota", "notas de Olívia").
 export default function TrilhaParques({
   parques,
   ativo,
   href,
+  quem = "sua nota",
 }: {
   parques: ParqueProgresso[];
   ativo: string;
   href: (code: string) => string;
+  quem?: string;
 }) {
   return (
     <div
       className="grid gap-1"
-      style={{ gridTemplateColumns: `repeat(${Math.min(parques.length, 7)}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${Math.min(parques.length, 8)}, minmax(0, 1fr))` }}
     >
       {parques.map((p) => {
         const info = PARQUE_INFO[p.code];
@@ -35,7 +38,7 @@ export default function TrilhaParques({
             key={p.code}
             href={href(p.code)}
             aria-current={atual ? "page" : undefined}
-            aria-label={`${info?.nome ?? p.code}: sua nota em ${p.minhas} de ${p.total}`}
+            aria-label={`${info?.nome ?? p.code}: ${quem} em ${p.minhas} de ${p.total}`}
             className="flex flex-col items-center gap-1 rounded-[14px] border py-1.5 transition-colors"
             style={
               atual
@@ -62,7 +65,9 @@ export default function TrilhaParques({
                 )}
               </svg>
               <span
-                className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold tracking-[0.3px]"
+                className={`absolute inset-0 flex items-center justify-center font-extrabold ${
+                  p.code.length > 4 ? "text-[8px] tracking-[-0.2px]" : "text-[10px] tracking-[0.3px]"
+                }`}
                 style={{ color: cor }}
               >
                 {p.code}

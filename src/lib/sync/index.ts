@@ -396,7 +396,7 @@ const TABS: TabDef[] = [
     aba: "Atracoes",
     abaOpcional: true,
     headers: ["id", "parque_code", "ordem", "nome", "tipo", "altura_min_cm", "descricao", "video_url"],
-    opcionais: ["foto_url", "area", "alertas", "fila_rapida", "duracao_min", "detalhes"],
+    opcionais: ["foto_url", "area", "alertas", "fila_rapida", "duracao_min", "detalhes", "publico"],
     processar: async (rows) => {
       const data = validar(atracoesSchema, rows).map((r) => ({
         id: r.id,
@@ -413,6 +413,7 @@ const TABS: TabDef[] = [
         filaRapida: r.fila_rapida,
         duracaoMin: r.duracao_min,
         detalhes: r.detalhes,
+        publico: r.publico,
       }));
       await mirror(
         data,
@@ -442,15 +443,24 @@ const TABS: TabDef[] = [
   },
 ];
 
-let emAndamento: Promise<SyncResult> | null = null;
+// No globalThis: o agendador (instrumentation) e as rotas/actions podem carregar
+// cópias diferentes deste módulo, e todas precisam enxergar o mesmo sync.
+const andamento = globalThis as unknown as { __orlandoSyncEmAndamento?: Promise<SyncResult> | null };
 
 // Uma execução por vez; chamadas concorrentes recebem a mesma promise.
 export function runSync(trigger: string, fetcher: Fetcher = fetchTab): Promise<SyncResult> {
-  if (emAndamento) return emAndamento;
-  emAndamento = doSync(trigger, fetcher).finally(() => {
-    emAndamento = null;
+  if (andamento.__orlandoSyncEmAndamento) return andamento.__orlandoSyncEmAndamento;
+  const p = doSync(trigger, fetcher).finally(() => {
+    andamento.__orlandoSyncEmAndamento = null;
   });
-  return emAndamento;
+  andamento.__orlandoSyncEmAndamento = p;
+  return p;
+}
+
+// Quem escreve na planilha espera o sync em andamento acabar — senão ele gravaria
+// no banco, por cima, o valor que leu antes da escrita.
+export async function aguardarSync(): Promise<void> {
+  await andamento.__orlandoSyncEmAndamento?.catch(() => {});
 }
 
 async function doSync(trigger: string, fetcher: Fetcher): Promise<SyncResult> {
