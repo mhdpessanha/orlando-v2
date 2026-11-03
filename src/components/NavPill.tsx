@@ -22,7 +22,7 @@ export default function NavPill({ decisoes }: Props) {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-4 mx-4 mt-8 flex items-center justify-between rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(20,22,58,0.88)] px-4 py-[11px] backdrop-blur">
+    <nav className="sticky bottom-1.5 mx-4 mt-8 flex items-center justify-between rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(20,22,58,0.88)] px-4 py-[11px] backdrop-blur">
       {ITEMS.map(({ label, href, icon: Icon }) => {
         const ativo = href === "/" ? pathname === "/" : pathname.startsWith(href);
         const badge = href === "/decisoes" && decisoes && decisoes.abertas > 0 ? decisoes : null;
