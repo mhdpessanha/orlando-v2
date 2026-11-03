@@ -4,24 +4,16 @@
 
 /* Cor sólida no html: o Safari do iPhone pinta a faixa da barra de status e a
    área fora da página com a background-color do documento — com só o gradiente
-   (background-image), ela ficava transparente e o Safari usava branco. */
+   (background-image), ela ficava transparente e o Safari usava branco.
+   Não usar camada fixa encostada no rodapé pro gradiente: o Safari 26 pega a cor
+   dela e pinta uma barra opaca atrás da barra de endereço, comendo a tela. */
 html {
   background-color: #070b26;
 }
 
-/* O gradiente vive numa camada fixa do tamanho da tela (o iOS ignora
-   background-attachment: fixed). Por ser fixa e encostar no topo e no rodapé,
-   o Safari 26 também a usa pra tingir as barras: escuro em cima, roxo embaixo. */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, #070b26 0%, #101641 55%, #1d1550 100%);
-}
-
 body {
+  background: linear-gradient(180deg, #070b26 0%, #101641 55%, #1d1550 100%);
+  background-attachment: fixed;
   min-height: 100dvh;
   color: #f3f1ff;
   -webkit-font-smoothing: antialiased;
