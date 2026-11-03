@@ -4,13 +4,14 @@
 #
 # Confere o GitHub; se o main andou desde o último deploy:
 #   1. constrói a imagem a partir do COMMIT (git archive), nunca da pasta — mudança
-#      não commitada aqui nunca vai pro ar. Build quebrado = site segue na versão
-#      anterior;
+#      não commitada aqui nunca vai pro ar. Build que quebra é tentado de novo (até
+#      3 vezes, 30 s e 90 s depois); quebrou nas 3 = site segue na versão anterior;
 #   2. faz backup do banco (data/backups/, guarda os 30 últimos);
 #   3. troca o container e espera o /login responder;
 #   4. se não responder em 90 s, volta pra imagem anterior (e pro backup do banco,
 #      se o deploy mexia em prisma/).
-# Commit que falhou não é tentado de novo sozinho (o próximo push tenta).
+# Commit que falhou (depois das 3 tentativas) não é tentado de novo sozinho (o
+# próximo push tenta).
 # Commit que só mexe em *.md da raiz ou .claude/ não reconstrói nada.
 #
 # Uso:  scripts/deploy-auto.sh          (o launchd chama assim)
@@ -125,7 +126,7 @@ espera_site() {
 
 INICIO=$(date +%s)
 log "deploy começou: $(git log -1 --format=%s "$SHA")"
-: > "$ESTADO/build.log"
+echo "===== tentativa 1 =====" > "$ESTADO/build.log"
 
 # compose do próprio commit; .env e caminhos relativos (./data, ./credentials) da pasta
 git show "$SHA:docker-compose.yml" > "$ESTADO/docker-compose.yml"
@@ -149,13 +150,32 @@ else
   log "aviso: não achei a imagem que está no ar — se este deploy não subir, não tem pra onde voltar"
 fi
 
-# 1. build a partir do commit
-if ! git archive --format=tar "$SHA" |
-     docker build --progress=plain --label "org.opencontainers.image.revision=$SHA" \
-       -t "$IMAGEM:latest" - >> "$ESTADO/build.log" 2>&1; then
-  tail -n 25 "$ESTADO/build.log" | sed 's/^/    | /' >> "$LOG"
-  falhou "build quebrou em $(( $(date +%s) - INICIO )) s — o site segue na versão anterior"
-fi
+# 1. build a partir do commit. Quebrou = tenta de novo, até 3 vezes: às vezes a culpa
+#    é de fora, não do código (o next/font baixa as fontes do Google no build e já
+#    quebrou com uma resposta estranha de lá, em 03/11/2026). Erro de código quebra
+#    igual nas 3 e só atrasa o aviso em uns 3 min; o npm ci vem do cache do Docker.
+TENTATIVAS=3
+PAUSAS=(30 90)   # antes da 2ª e da 3ª tentativa
+constroi() {
+  git archive --format=tar "$SHA" |
+    docker build --progress=plain --label "org.opencontainers.image.revision=$SHA" \
+      -t "$IMAGEM:latest" - >> "$ESTADO/build.log" 2>&1
+}
+tentativa=1
+until constroi; do
+  if [ $tentativa -ge $TENTATIVAS ]; then
+    grep -v 'npm notice' "$ESTADO/build.log" | tail -n 25 | sed 's/^/    | /' >> "$LOG"
+    falhou "build quebrou $TENTATIVAS vezes em $(( $(date +%s) - INICIO )) s — o site segue na versão anterior"
+  fi
+  # primeira linha de erro desta tentativa, pro log dizer por que tentou de novo
+  motivo="$(sed -n "/^===== tentativa $tentativa =====/,\$p" "$ESTADO/build.log" |
+    grep -m1 -E '(TypeError|Type error|Error)[: ]' | sed -E 's/^#[0-9]+ [0-9.]+ //' | cut -c1-160)"
+  pausa=${PAUSAS[$((tentativa - 1))]}
+  log "build quebrou (tentativa $tentativa de $TENTATIVAS${motivo:+: $motivo}) — tento de novo em $pausa s"
+  sleep "$pausa"
+  tentativa=$((tentativa + 1))
+  echo "===== tentativa $tentativa =====" >> "$ESTADO/build.log"
+done
 
 # 2. backup do banco (o .backup do sqlite é consistente mesmo com o site no ar)
 BACKUP=""
