@@ -136,10 +136,18 @@ compose() {
   docker compose -p "$PROJETO" --project-directory "$REPO" ${extra[@]+"${extra[@]}"} -f "$arquivo" "$@"
 }
 
-# imagem que está rodando agora = pra onde voltar se der errado
+# Imagem que está rodando agora = pra onde voltar se der errado. Ganha o nome
+# "anterior" ANTES do build: no image store do containerd (Docker Desktop daqui),
+# imagem que perde a última tag deixa de ser achada pelo ID e é descartada.
 CONTAINER="$(compose "$ESTADO/docker-compose.yml" ps -q app 2>/dev/null | head -1)"
 ANTERIOR=""
 [ -n "$CONTAINER" ] && ANTERIOR="$(docker inspect -f '{{.Image}}' "$CONTAINER" 2>/dev/null || true)"
+VOLTA=""
+if [ -n "$ANTERIOR" ] && docker tag "$ANTERIOR" "$IMAGEM:anterior" 2>/dev/null; then
+  VOLTA="$IMAGEM:anterior"
+else
+  log "aviso: não achei a imagem que está no ar — se este deploy não subir, não tem pra onde voltar"
+fi
 
 # 1. build a partir do commit
 if ! git archive --format=tar "$SHA" |
@@ -148,7 +156,6 @@ if ! git archive --format=tar "$SHA" |
   tail -n 25 "$ESTADO/build.log" | sed 's/^/    | /' >> "$LOG"
   falhou "build quebrou em $(( $(date +%s) - INICIO )) s — o site segue na versão anterior"
 fi
-[ -n "$ANTERIOR" ] && docker tag "$ANTERIOR" "$IMAGEM:anterior"
 
 # 2. backup do banco (o .backup do sqlite é consistente mesmo com o site no ar)
 BACKUP=""
@@ -174,7 +181,7 @@ fi
 log "site não respondeu em $ESPERA s — voltando pra versão anterior"
 NOVO="$(compose "$ESTADO/docker-compose.yml" ps -aq app 2>/dev/null | head -1)"
 [ -n "$NOVO" ] && docker logs --tail 25 "$NOVO" 2>&1 | sed 's/^/    | /' >> "$LOG"
-[ -n "$ANTERIOR" ] || falhou "não havia versão anterior pra voltar — SITE FORA DO AR"
+[ -n "$VOLTA" ] || falhou "não havia versão anterior pra voltar — SITE FORA DO AR"
 
 COMPOSE_OK="$ESTADO/docker-compose.ok.yml"
 [ -f "$COMPOSE_OK" ] || COMPOSE_OK="$REPO/docker-compose.yml"
@@ -182,7 +189,7 @@ compose "$COMPOSE_OK" stop app >> "$ESTADO/build.log" 2>&1
 if [ $MEXE_NO_BANCO = 1 ] && [ -n "$BACKUP" ]; then
   cp "$BACKUP" "$BANCO" && log "banco restaurado do backup de antes do deploy"
 fi
-docker tag "$ANTERIOR" "$IMAGEM:latest"
+docker tag "$VOLTA" "$IMAGEM:latest"
 compose "$COMPOSE_OK" up -d --no-build --force-recreate app >> "$ESTADO/build.log" 2>&1
 if espera_site $ESPERA; then
   falhou "voltou pra versão anterior — site no ar"
