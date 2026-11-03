@@ -6,6 +6,8 @@ services:
       - DATABASE_URL=file:/app/data/orlando.db
       - CMS_SHEET_ID=1robcUP4JwMFHiVldsJDvS13mTqIWDyD1XEN7GGilKRU
       - GOOGLE_SHEETS_CREDENTIALS_PATH=/app/credentials/service-account.json
+      # assistente "Pergunte" (Claude Haiku); a chave fica no .env, fora do git
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:
       - ./data:/app/data
       - ./credentials:/app/credentials:ro

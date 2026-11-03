@@ -301,3 +301,21 @@ export function LuggageIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function ChatIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4.5 7A2.5 2.5 0 017 4.5h10A2.5 2.5 0 0119.5 7v6.5A2.5 2.5 0 0117 16h-6l-4.5 3.5V16A2.5 2.5 0 014.5 13.5z" />
+      <path d="M12 7.6l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z" />
+    </svg>
+  );
+}
+
+export function SendIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 19V5" />
+      <path d="M6 11l6-6 6 6" />
+    </svg>
+  );
+}

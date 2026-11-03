@@ -595,6 +595,17 @@ export async function getAtracoes(userId: string, parqueSel?: string) {
   };
 }
 
+// Todas as atrações (todos os parques) no ranking da família — pro assistente.
+// As notas de cada um já são públicas no site (aba Família), então vão junto.
+export async function getAtracoesComNotas() {
+  const [atracoes, notas, votantes] = await Promise.all([
+    db.attraction.findMany({ orderBy: [{ ordem: "asc" }, { id: "asc" }] }),
+    db.attractionRating.findMany({ select: { userId: true, attractionId: true, nota: true } }),
+    getVotantes(),
+  ]);
+  return rankingFamilia(atracoes.map((a) => decorarAtracao(a, notas, votantes, "")));
+}
+
 // Resumo pro card da home: quantas já têm a minha nota e onde continuar.
 export async function getAtracoesResumo(userId: string) {
   const [atracoes, minhas, dias] = await Promise.all([

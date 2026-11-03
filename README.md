@@ -48,6 +48,22 @@ Pré-requisitos: Docker (Docker Desktop ou OrbStack) e o repositório clonado.
 - Atualização: `git pull && docker compose up -d --build`.
 - Logs: `docker compose logs -f app` (ou `cloudflared`).
 
+## Assistente "Pergunte"
+
+Chat em `/perguntar` (botão no topo) que responde sobre a viagem com o Claude Haiku
+pela API. A chave vai no `.env` (`ANTHROPIC_API_KEY`) e o `docker-compose.yml` passa
+pro container; sem ela o resto do site segue normal. Pra gravar a chave sem ela
+aparecer na tela nem no histórico do shell:
+
+```bash
+read -s "k?Chave da API: " && echo "ANTHROPIC_API_KEY=$k" >> .env && unset k
+docker compose up -d   # recria o container com a variável nova
+```
+
+Cada pergunta aparece em `docker compose logs -f app` como `[chat] usuário: entrada …
+cache lido … saída …` (tokens). Vale pôr um limite de gasto mensal no Console da
+Anthropic; o site também limita 40 perguntas por hora por pessoa.
+
 ## Sync da planilha-CMS
 
 O conteúdo vem da planilha "Site_Orlando_2027__CMS" (Google Sheets) por sync de mão

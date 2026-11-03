@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Avatar from "@/components/Avatar";
 import { getAvatares, getDecisoesResumo } from "@/lib/queries";
-import { SparkleIcon } from "@/components/icons";
+import { ChatIcon, SparkleIcon } from "@/components/icons";
 import NavPill from "@/components/NavPill";
 import SyncButton from "@/components/SyncButton";
 import { logoutAction } from "./actions";
@@ -23,7 +23,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             Orlando 2027
           </span>
         </Link>
-        <Avatar a={avatarDe(user.name, user.nucleo)} size={34} />
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/perguntar"
+            className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/[0.08] px-3 py-[7px] text-[12px] font-bold text-gold-light"
+          >
+            <ChatIcon width={15} height={15} />
+            <span>Pergunte</span>
+          </Link>
+          <Avatar a={avatarDe(user.name, user.nucleo)} size={34} />
+        </div>
       </header>
 
       <main className="flex-grow px-[22px]">{children}</main>
