@@ -45,8 +45,34 @@ Pré-requisitos: Docker (Docker Desktop ou OrbStack) e o repositório clonado.
 - O cookie de sessão é `Secure` em produção — o login só funciona via HTTPS
   (pelo domínio). O acesso direto `http://<ip-do-mini>:3000` na rede local não
   mantém login; é só pra debug.
-- Atualização: `git pull && docker compose up -d --build`.
+- Atualização: automática a cada push no `main` (ver abaixo).
 - Logs: `docker compose logs -f app` (ou `cloudflared`).
+
+### Deploy automático
+
+Todo push no `main` vai pro ar sozinho em ~3–6 min: um agente do launchd roda
+`scripts/deploy-auto.sh` a cada 2 min. Quando o `main` do GitHub andou, ele:
+
+1. constrói a imagem a partir do commit (`git archive`), não da pasta, então o que
+   não foi commitado nunca vai pro ar. Se o build quebrar, o site segue na versão
+   anterior;
+2. faz backup do banco em `data/backups/` (guarda os 30 últimos);
+3. troca o container e espera o `/login` responder;
+4. se não responder em 90 s, volta pra imagem anterior (e pro backup do banco, se o
+   deploy mexia em `prisma/`).
+
+Commit que falhou não é tentado de novo sozinho: o próximo push tenta, ou
+`scripts/deploy-auto.sh --agora`. Commit que só mexe em `*.md` da raiz não reconstrói.
+Histórico em `data/deploy.log` (saída completa do último build em `data/deploy/build.log`).
+
+```bash
+# instalar (uma vez)
+cp scripts/deploy-auto.plist ~/Library/LaunchAgents/br.com.pessanhaserver.orlando-deploy.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/br.com.pessanhaserver.orlando-deploy.plist
+
+tail -f data/deploy.log                                               # acompanhar
+launchctl bootout gui/$(id -u)/br.com.pessanhaserver.orlando-deploy  # pausar
+```
 
 ## Assistente "Pergunte"
 

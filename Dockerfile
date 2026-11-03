@@ -16,6 +16,8 @@ ENV DATABASE_URL="file:/app/data/orlando.db"
 RUN npm run build
 
 FROM node:22-alpine AS runner
+# o deploy automático (scripts/deploy-auto.sh) limpa só imagens velhas com esta label
+LABEL br.com.pessanhaserver.app=orlando-v2
 RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production \

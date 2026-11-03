@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Deploy automático do orlando-v2: roda scripts/deploy-auto.sh a cada 2 min.
+  Instalar (uma vez, no Mac Mini):
+    cp scripts/deploy-auto.plist ~/Library/LaunchAgents/br.com.pessanhaserver.orlando-deploy.plist
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/br.com.pessanhaserver.orlando-deploy.plist
+  Pausar:  launchctl bootout gui/$(id -u)/br.com.pessanhaserver.orlando-deploy
+  Rodar já: launchctl kickstart gui/$(id -u)/br.com.pessanhaserver.orlando-deploy
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>br.com.pessanhaserver.orlando-deploy</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/pessanhaserver/docker/orlando-v2/scripts/deploy-auto.sh</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>120</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <!-- erro do próprio script (o histórico normal vai pra data/deploy.log) -->
+  <key>StandardOutPath</key>
+  <string>/Users/pessanhaserver/docker/orlando-v2/data/deploy/launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/pessanhaserver/docker/orlando-v2/data/deploy/launchd.log</string>
+</dict>
+</plist>

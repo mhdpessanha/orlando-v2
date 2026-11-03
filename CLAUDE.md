@@ -16,7 +16,7 @@ Site privado da viagem em família a Orlando (07–24/01/2027, 9 pessoas), auto-
 
 - Next.js (App Router) + TypeScript + Tailwind + Prisma/SQLite (banco em `./data/orlando.db`, volume no Docker).
 - Auth própria: bcryptjs + cookie HTTP-only, sessão 30 dias, middleware protegendo tudo exceto `/login`. Script `create-user` pra definir senhas. (Igual ao v1 — o README antigo tem o passo a passo de deploy com Docker + Cloudflare Tunnel; reaproveitar o fluxo.)
-- Deploy: `docker compose up -d --build` no Mac Mini; tunnel já aponta `orlando.pessanhaserver.com.br` → `http://app:3000`.
+- Deploy **automático** (desde 03/11/2026): todo push no `main` vai pro ar sozinho em ~3–6 min. O launchd do Mini (`br.com.pessanhaserver.orlando-deploy`, plist em `scripts/deploy-auto.plist`) roda `scripts/deploy-auto.sh` a cada 2 min: build a partir do **commit** (`git archive` — mudança não commitada na pasta nunca vai pro ar), backup do banco em `data/backups/`, troca o container e, se o `/login` não responder em 90 s, volta sozinho pra imagem anterior (e pro backup, se o deploy mexia em `prisma/`). Histórico em `data/deploy.log`. **Não rodar `docker compose up -d --build` na mão depois do push** (faria build da pasta, com o que não foi commitado); pra repetir um deploy que falhou: `scripts/deploy-auto.sh --agora`. O tunnel (projeto `~/docker/cloudflare`) aponta `orlando.pessanhaserver.com.br` → porta 3000 do host.
 - Fonts via `next/font/google`: Fredoka (display) + Nunito Sans (texto).
 - Assistente "Pergunte" (tela 13): Claude Haiku (`claude-haiku-5-5`) via `@anthropic-ai/sdk`, chave em `ANTHROPIC_API_KEY` (`.env`, fora do git; cobrada à parte da assinatura). Única dependência externa de IA — nada de IA local por enquanto (o Mini tem 8 GB e já roda ~20 containers).
 
