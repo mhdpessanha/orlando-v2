@@ -44,6 +44,24 @@ export function hojeBrasilia(agora = new Date()): string {
   return brt.toISOString().slice(0, 10);
 }
 
+// Data e hora de agora em Orlando (America/New_York), pro plano hora a hora da viagem.
+export function agoraOrlando(agora = new Date()): { data: string; hora: string } {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(agora)
+      .map((x) => [x.type, x.value]),
+  );
+  return { data: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` };
+}
+
 // Dias corridos de hoje (Brasília) até a data. 0 = hoje; negativo = passou.
 export function diasAte(data: string, agora = new Date()): number {
   return Math.round((parseISO(data).getTime() - parseISO(hojeBrasilia(agora)).getTime()) / 86_400_000);

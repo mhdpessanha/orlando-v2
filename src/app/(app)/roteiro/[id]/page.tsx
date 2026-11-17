@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon } from "@/components/icons";
+import { BedIcon, CakeIcon, ChevronLeftIcon, ChevronRightIcon, StarIcon, UsersIcon } from "@/components/icons";
 import { getSession } from "@/lib/auth";
 import { hrefClassificar, notaInfo, precisaTroca, trocaLabel } from "@/lib/atracoes";
 import { avatarDaPessoa } from "@/lib/caricaturas";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/format";
 import { hexRgba, PARQUE_INFO, PERIODO_INFO } from "@/lib/parques";
 import {
+  contarPlanoCriancas,
   getAtracoes,
   getAtracoesCriancas,
   getDiaDetalhe,
@@ -32,6 +33,7 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
   if (!detalhe) notFound();
   const { dia, agenda, estadias, numeroDoDia, totalDias, anterior, proximo, pessoas } = detalhe;
   const session = await getSession();
+  const itensDoPlano = await contarPlanoCriancas(dia.id);
   const [atracoes, dasCriancas] =
     dia.parqueCode && session
       ? await Promise.all([
@@ -218,6 +220,24 @@ export default async function DiaPage({ params }: { params: Promise<{ id: string
           </div>
         )}
       </div>
+
+      {itensDoPlano > 0 && (
+        <Link
+          href={`/roteiro/${dia.id}/criancas`}
+          className="flex items-center gap-3.5 rounded-card border border-nucleo-vm/40 bg-nucleo-vm/[0.08] px-4 py-[15px]"
+        >
+          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[13px] bg-nucleo-vm/[0.14]">
+            <UsersIcon width={20} height={20} className="text-nucleo-vm" />
+          </div>
+          <div className="flex grow flex-col gap-0.5">
+            <span className="text-[14px] font-extrabold">Plano das crianças</span>
+            <span className="text-[12px] text-ink-muted">
+              Hora a hora: onde elas estão e com quem, com planos A, B e C
+            </span>
+          </div>
+          <ChevronRightIcon width={15} height={15} className="shrink-0 text-ink-faint" />
+        </Link>
+      )}
 
       {doParque?.parque && parque && (
         <div className="flex flex-col gap-2.5">

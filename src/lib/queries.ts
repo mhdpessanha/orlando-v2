@@ -795,3 +795,52 @@ export async function getAtracoesResumo(userId: string) {
     parquesProntos: parques.length - pendentes.length,
   };
 }
+
+// ── Plano das crianças (aba PlanoCriancas): o dia hora a hora ──
+
+// Dias do seletor: do primeiro ao último dia com plano; os do meio sem linhas
+// aparecem com `itens = 0` (dia sem plano hora a hora).
+export async function getDiasDoPlano() {
+  const [dias, contagem] = await Promise.all([
+    db.day.findMany({
+      orderBy: { data: "asc" },
+      select: { id: true, data: true, titulo: true, parqueCode: true },
+    }),
+    db.kidsPlanItem.groupBy({ by: ["roteiroId"], _count: { _all: true } }),
+  ]);
+  const itensPorDia = new Map(contagem.map((c) => [c.roteiroId, c._count._all]));
+  const comPlano = dias.filter((d) => itensPorDia.has(d.id));
+  if (comPlano.length === 0) return [];
+  const primeiro = comPlano[0].data;
+  const ultimo = comPlano[comPlano.length - 1].data;
+  return dias
+    .filter((d) => d.data >= primeiro && d.data <= ultimo)
+    .map((d) => ({ ...d, itens: itensPorDia.get(d.id) ?? 0 }));
+}
+
+// Dia que abre por padrão: hoje (data de Orlando) durante a viagem; antes dela, o
+// primeiro dia com plano; depois, o último.
+export async function getDiaPadraoDoPlano(hoje: string) {
+  const dias = await getDiasDoPlano();
+  if (dias.length === 0) return null;
+  const deHoje = dias.find((d) => d.data === hoje);
+  if (deHoje) return deHoje.id;
+  return hoje < dias[0].data ? dias[0].id : dias[dias.length - 1].id;
+}
+
+export function contarPlanoCriancas(roteiroId: string) {
+  return db.kidsPlanItem.count({ where: { roteiroId } });
+}
+
+export async function getPlanoCriancas(roteiroId: string) {
+  const [dia, dias, itens, pessoas] = await Promise.all([
+    db.day.findUnique({ where: { id: roteiroId } }),
+    getDiasDoPlano(),
+    db.kidsPlanItem.findMany({ where: { roteiroId } }),
+    getPessoas(),
+  ]);
+  if (!dia) return null;
+  const ids = [...new Set(itens.flatMap((i) => (i.atracaoIds ?? "").split("|").map((s) => s.trim()).filter(Boolean)))];
+  const atracoes = ids.length > 0 ? await db.attraction.findMany({ where: { id: { in: ids } } }) : [];
+  return { dia, dias, itens, pessoas, atracoes: new Map(atracoes.map((a) => [a.id, a])) };
+}

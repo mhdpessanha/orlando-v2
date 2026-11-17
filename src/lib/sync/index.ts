@@ -2,7 +2,7 @@ import type { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { AbaNaoEncontrada, fetchTab, sheetsIndisponivel } from "./sheets";
-import { rowsToObjects, TabError } from "./parse";
+import { normEnum, rowsToObjects, TabError } from "./parse";
 import { cacheFotosAtracoes } from "./fotos";
 import {
   agendaSchema,
@@ -17,6 +17,7 @@ import {
   magiaSchema,
   marcosSchema,
   pendenciasSchema,
+  planoCriancasSchema,
   roteiroSchema,
   turmaSchema,
   voosSchema,
@@ -419,6 +420,42 @@ const TABS: TabDef[] = [
         data,
         (d) => db.attraction.upsert({ where: { id: d.id }, update: d, create: d }),
         (ids) => db.attraction.deleteMany({ where: { id: { notIn: ids } } }),
+      );
+      return data.length;
+    },
+  },
+  {
+    aba: "PlanoCriancas",
+    abaOpcional: true,
+    headers: [
+      "id", "roteiro_id", "ordem", "hora_inicio", "hora_fim", "bloco", "tipo", "plano", "titulo",
+      "quem", "local", "atracao_id", "detalhe", "video_url", "visivel_site", "status",
+    ],
+    processar: async (rows) => {
+      // Segunda barreira das surpresas: só passa linha com visivel_site = sim (vazio
+      // também fica de fora). O que não passa nem é validado, nem chega ao banco.
+      const visiveis = rows.filter((r) => normEnum(r.obj.visivel_site) === "sim");
+      const data = validar(planoCriancasSchema, visiveis).map((r) => ({
+        id: r.id,
+        roteiroId: r.roteiro_id,
+        ordem: r.ordem,
+        horaInicio: r.hora_inicio,
+        horaFim: r.hora_fim,
+        bloco: r.bloco,
+        tipo: r.tipo,
+        plano: r.plano,
+        titulo: r.titulo,
+        quem: r.quem,
+        local: r.local,
+        atracaoIds: r.atracao_id,
+        detalhe: r.detalhe,
+        videoUrl: r.video_url,
+        status: r.status,
+      }));
+      await mirror(
+        data,
+        (d) => db.kidsPlanItem.upsert({ where: { id: d.id }, update: d, create: d }),
+        (ids) => db.kidsPlanItem.deleteMany({ where: { id: { notIn: ids } } }),
       );
       return data.length;
     },

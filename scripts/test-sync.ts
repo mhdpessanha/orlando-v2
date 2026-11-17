@@ -94,7 +94,9 @@ async function main() {
   // ── 1º sync: tudo válido ──
   const r1 = await runSync("teste-ok", fetcherDe(FIXTURE_OK));
   assert.equal(r1.ok, true, `sync 1 deveria passar: ${JSON.stringify(r1.abas)}`);
-  assert.equal(r1.abas.length, 15);
+  assert.equal(r1.abas.length, 16);
+  // aba opcional ausente na fixture (PlanoCriancas) também não é erro
+  assert.equal(r1.abas.find((a) => a.aba === "PlanoCriancas")?.status, "ausente");
   assert.equal(await db.poll.count(), 2);
   // aba opcional ausente na fixture (Pendencias) não é erro
   assert.equal(r1.abas.find((a) => a.aba === "Pendencias")?.status, "ausente");
@@ -207,6 +209,39 @@ async function main() {
   const abaR5 = r5.abas.find((a) => a.aba === "Atracoes")!;
   assert.equal(abaR5.status, "erro");
   assert.match(abaR5.erro!, /publico/);
+
+  // ── 6º sync: plano das crianças — só entra linha com visivel_site = sim ──
+  const H_PLANO = [
+    "id", "roteiro_id", "ordem", "hora_inicio", "hora_fim", "bloco", "tipo", "plano", "titulo",
+    "quem", "local", "atracao_id", "detalhe", "video_url", "visivel_site", "status",
+  ];
+  const comPlano: Fixture = structuredClone(FIXTURE_OK);
+  comPlano.PlanoCriancas = [
+    H_PLANO,
+    ["pc001", "r02", "1", "08:45", "10:00", "Café", "Todos", "", "Café no Boma", "Os 9", "", "", "", "", "sim", "fechado"],
+    ["pc002", "r02", "2", "10:35", "11:30", "Pandora", "Crianças", "a", "Na'vi", "Crianças com o grupo 2", "", "mk-pirates", "", "", "Sim", "a confirmar"],
+    ["pc003", "r02", "3", "15:00", "16:30", "Tarde", "todos", "", "Surpresa", "", "", "", "PRIVADO", "", "nao", "fechado"],
+    ["pc004", "r02", "4", "", "", "Tarde", "todos", "", "Sem marcação", "", "", "", "", "", "", ""],
+    // linha oculta com dado inválido não derruba a aba (nem é validada)
+    ["pc005", "r02", "x", "25h", "", "", "qualquer", "Z", "", "", "", "", "", "", "não", ""],
+    ["pc006", "r02", "5", "", "", "Se o dia desandar", "criancas", "D", "Voltar pro hotel", "", "", "", "", "", "sim", ""],
+  ];
+  const r6 = await runSync("teste-plano", fetcherDe(comPlano));
+  assert.equal(r6.abas.find((a) => a.aba === "PlanoCriancas")?.status, "ok", JSON.stringify(r6.abas));
+  const plano = await db.kidsPlanItem.findMany({ orderBy: { id: "asc" } });
+  assert.deepEqual(plano.map((p) => p.id), ["pc001", "pc002", "pc006"], "só visivel_site = sim entra no banco");
+  assert.equal(plano[1].tipo, "criancas", "tipo aceita acento/maiúscula");
+  assert.equal(plano[1].plano, "A", "plano em maiúscula");
+  assert.equal(plano[2].horaInicio, null, "plano D sem hora");
+  // linha que era visível e virou "nao" some do site no sync seguinte
+  comPlano.PlanoCriancas[1][14] = "nao";
+  await runSync("teste-plano-oculta", fetcherDe(comPlano));
+  assert.equal(await db.kidsPlanItem.findUnique({ where: { id: "pc001" } }), null, "virou nao → sai do banco");
+  // sem o cabeçalho visivel_site a aba falha e o banco fica como estava
+  comPlano.PlanoCriancas = comPlano.PlanoCriancas.map((r) => r.filter((_, i) => i !== 14));
+  const r7 = await runSync("teste-plano-sem-coluna", fetcherDe(comPlano));
+  assert.match(r7.abas.find((a) => a.aba === "PlanoCriancas")!.erro!, /cabeçalho ausente: visivel_site/);
+  assert.equal(await db.kidsPlanItem.count(), 2, "aba falhou → dados antigos intactos");
 
   console.log("✓ pipeline de sync: parse, validação, espelho, falha isolada e SyncLog — tudo ok");
 }

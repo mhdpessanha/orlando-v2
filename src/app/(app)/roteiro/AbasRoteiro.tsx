@@ -1,16 +1,17 @@
 import Link from "next/link";
 
-// Roteiro tem duas abas: os dias e as atrações (a nav já está cheia).
+// Roteiro tem três abas: os dias, as atrações e o plano das crianças (a nav já está cheia).
 export default function AbasRoteiro({
   ativa,
   pendentes,
 }: {
-  ativa: "dias" | "atracoes";
+  ativa: "dias" | "atracoes" | "criancas";
   pendentes?: number; // atrações ainda sem a minha nota
 }) {
   const abas = [
     { id: "dias", label: "Dias", href: "/roteiro" },
     { id: "atracoes", label: "Atrações", href: "/roteiro/atracoes" },
+    { id: "criancas", label: "Crianças", href: "/roteiro/criancas" },
   ] as const;
   return (
     <div className="flex gap-1 rounded-full border border-stroke bg-white/[0.04] p-1">

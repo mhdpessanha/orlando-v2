@@ -255,3 +255,29 @@ export const atracoesSchema = z.object({
   // (brinquedo infantil que fica fora da tier list dos adultos)
   publico: enumOpt(["todos", "criancas"] as const).transform((v) => (v === "todos" ? null : v)),
 });
+
+export const TIPOS_PLANO = ["todos", "adultos", "criancas"] as const;
+export const LETRAS_PLANO = ["A", "B", "C", "D"] as const;
+
+// Aba opcional PlanoCriancas: o dia hora a hora das crianças. visivel_site é
+// tratado antes da validação (o sync só deixa passar as linhas com "sim").
+export const planoCriancasSchema = z.object({
+  id: req,
+  roteiro_id: req,
+  ordem: intReq,
+  hora_inicio: timeOpt,
+  hora_fim: timeOpt,
+  bloco: opt,
+  tipo: enumReq(TIPOS_PLANO),
+  // vazio = item fixo; A/B/C = alternativas; D = reserva do dia
+  plano: opt
+    .transform((v) => (v === null ? null : v.toUpperCase()))
+    .refine((v): v is (typeof LETRAS_PLANO)[number] | null => v === null || LETRAS_PLANO.includes(v as never), "deve ser A, B, C, D ou vazio"),
+  titulo: req,
+  quem: opt,
+  local: opt,
+  atracao_id: opt,
+  detalhe: opt,
+  video_url: urlOpt,
+  status: curtaOpt,
+});

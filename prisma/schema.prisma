@@ -243,6 +243,29 @@ model Attraction {
 
 // ── Fase 2: interações (só SQLite, nunca voltam pra planilha) ──
 
+// Espelho da aba opcional PlanoCriancas: o dia hora a hora, com o que as crianças
+// fazem (e com quem) enquanto os adultos vão nos brinquedos. Só entram linhas com
+// visivel_site = sim — o sync descarta o resto antes de gravar.
+model KidsPlanItem {
+  id         String  @id
+  roteiroId  String // Day.id da aba Roteiro (sem FK: as abas sincronizam de forma independente)
+  ordem      Int
+  horaInicio String? // HH:MM; vazio no plano D
+  horaFim    String?
+  bloco      String? // agrupa as linhas do dia ("Manhã em Pandora", "Almoço"…)
+  tipo       String // todos, adultos, criancas
+  plano      String? // vazio = fixo; A/B/C = alternativas; D = "se o dia desandar"
+  titulo     String
+  quem       String?
+  local      String?
+  atracaoIds String? // ids da aba Atracoes separados por "|"
+  detalhe    String?
+  videoUrl   String? // só quando o item não existe em Atracoes
+  status     String? // fechado, a confirmar
+
+  @@index([roteiroId])
+}
+
 model Vote {
   id        String   @id @default(cuid())
   userId    String
