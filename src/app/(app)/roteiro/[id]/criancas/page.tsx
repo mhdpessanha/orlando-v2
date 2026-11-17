@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Attraction, KidsPlanItem, Person } from "@prisma/client";
 import Avatar from "@/components/Avatar";
-import { ChevronRightIcon, MapPinIcon, PlayIcon } from "@/components/icons";
+import { ChevronLeftIcon, ChevronRightIcon, MapPinIcon, PlayIcon } from "@/components/icons";
 import { fotoSrc, youtubeId, type Crianca } from "@/lib/atracoes";
 import { avatarDaPessoa } from "@/lib/caricaturas";
 import { diaNumero, diaSemanaCurto, tituloDia } from "@/lib/format";
@@ -59,6 +59,10 @@ export default async function PlanoCriancasDia({ params }: { params: Promise<{ i
     atracoes,
     criancas: pessoas.filter((p) => p.tipo === "crianca").map((p) => ({ nome: p.nome, alturaCm: p.alturaCm })),
   };
+  // Dia anterior / próximo dia: pula os dias sem plano (r16 e r18 hoje)
+  const comPlano = dias.filter((d) => d.itens > 0);
+  const anterior = comPlano.filter((d) => d.data < dia.data).at(-1) ?? null;
+  const proximo = comPlano.find((d) => d.data > dia.data) ?? null;
   const tiposDoDia = Object.keys(TIPO_INFO).filter((t) => itens.some((i) => i.tipo === t));
 
   return (
@@ -167,6 +171,47 @@ export default async function PlanoCriancasDia({ params }: { params: Promise<{ i
             </section>
           )}
         </>
+      )}
+
+      {(anterior || proximo) && (
+        <nav aria-label="Outros dias do plano" className="grid grid-cols-2 gap-2.5">
+          {anterior ? (
+            <Link
+              href={`/roteiro/${anterior.id}/criancas`}
+              className="flex min-w-0 items-center gap-2 rounded-card border border-stroke bg-surface px-3 py-3"
+            >
+              <ChevronLeftIcon width={16} height={16} strokeWidth={2.2} className="shrink-0 text-gold-light" />
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-[1.5px] text-ink-faint">
+                  Dia anterior
+                </span>
+                <span className="truncate text-[13px] font-extrabold">
+                  {diaSemanaCurto(anterior.data)} {diaNumero(anterior.data)}
+                </span>
+                <span className="truncate text-[11.5px] font-semibold text-ink-muted">{anterior.titulo}</span>
+              </span>
+            </Link>
+          ) : (
+            <span />
+          )}
+          {proximo && (
+            <Link
+              href={`/roteiro/${proximo.id}/criancas`}
+              className="flex min-w-0 items-center justify-end gap-2 rounded-card border border-stroke bg-surface px-3 py-3 text-right"
+            >
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-[1.5px] text-ink-faint">
+                  Próximo dia
+                </span>
+                <span className="truncate text-[13px] font-extrabold">
+                  {diaSemanaCurto(proximo.data)} {diaNumero(proximo.data)}
+                </span>
+                <span className="truncate text-[11.5px] font-semibold text-ink-muted">{proximo.titulo}</span>
+              </span>
+              <ChevronRightIcon width={16} height={16} strokeWidth={2.2} className="shrink-0 text-gold-light" />
+            </Link>
+          )}
+        </nav>
       )}
     </div>
   );
