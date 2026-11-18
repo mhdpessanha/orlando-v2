@@ -10,8 +10,9 @@
 import type { User } from "@prisma/client";
 import { alturaM, criancasNaAltura, NOTAS, parseAlertas, tipoLabel } from "./atracoes";
 import { db } from "./db";
-import { diasAte, hojeBrasilia, moeda, tituloDia } from "./format";
+import { agoraOrlando, diasAte, hojeBrasilia, moeda, tituloDia } from "./format";
 import { PARQUE_INFO, PERIODO_INFO } from "./parques";
+import { faixaHoras, idsAtracoes, statusAberto, tipoInfo } from "./planoCriancas";
 import {
   gastoFalta,
   getAtracoesComNotas,
@@ -40,8 +41,9 @@ Como responder:
 - Datas por extenso ("sábado, 9 de janeiro"), horas como 21h05, valores como R$ 1.234,56 ou US$ 100,00.
 - Localizadores, números de voo e códigos de confirmação: copie exatamente como estão nos dados.
 - "Eu", "meu", "minha", "a gente" se referem a quem está perguntando (identificado no último bloco). "Hoje" e "amanhã" contam a partir da data informada lá.
+- Plano das crianças: é o dia hora a hora, com quem as crianças ficam enquanto os adultos vão nos brinquedos. Os horários são de Orlando. Quando perguntarem onde as crianças estão "agora", use a data e a hora de Orlando do último bloco; se a viagem ainda não começou ou o dia não tem plano, diga isso. Em "com quem", copie os nomes como estão nos dados. Planos A, B e C são alternativas pro mesmo horário (A é o preferido); plano D é a saída combinada se o dia desandar. Item com "status: a confirmar" ainda não está fechado: avise.
 - Financeiro: você só recebeu o financeiro do núcleo de quem pergunta (o Murilo, admin, recebe todos). Se perguntarem do dinheiro de outro núcleo, explique que cada núcleo só vê o próprio financeiro no site.
-- Você só lê: não consegue mudar nada no site nem na planilha. Para votar, dar nota em atração ou mexer na lista de compras, indique a tela: Decisões, Roteiro › Atrações, Compras. Outras telas: Início, Roteiro (um dia por tela), Voos e Hospedagens (atalhos no Guia), Guia, Financeiro, Turma (no rodapé).`;
+- Você só lê: não consegue mudar nada no site nem na planilha. Para votar, dar nota em atração ou mexer na lista de compras, indique a tela: Decisões, Roteiro › Atrações, Compras. Outras telas: Início, Roteiro (um dia por tela), Roteiro › Crianças (o plano das crianças, dia a dia), Voos e Hospedagens (atalhos no Guia), Guia, Financeiro, Turma (no rodapé).`;
 
 type Valor = string | number | null | undefined;
 
@@ -293,6 +295,47 @@ async function secaoAtracoes(): Promise<string> {
   return linhas.join("\n");
 }
 
+// O dia hora a hora das crianças (só as linhas visíveis: as outras nem chegam ao banco).
+// Vai inteiro, com o detalhe: ~31 mil tokens (medido em 18/11/2026).
+async function secaoPlanoCriancas(): Promise<string> {
+  const [dias, itens, atracoes] = await Promise.all([
+    getDias(),
+    db.kidsPlanItem.findMany({ orderBy: [{ ordem: "asc" }, { id: "asc" }] }),
+    db.attraction.findMany({ select: { id: true, nome: true } }),
+  ]);
+  if (itens.length === 0) return "";
+  const nomeAtracao = new Map(atracoes.map((a) => [a.id, a.nome]));
+  const linha = (i: (typeof itens)[number]) => {
+    const cabeca = [faixaHoras(i.horaInicio, i.horaFim), i.plano ? `plano ${i.plano}` : null, `[${tipoInfo(i.tipo).label.toLowerCase()}]`]
+      .filter(Boolean)
+      .join(" ");
+    return item(`${cabeca} ${i.titulo}`, [
+      ["com quem", i.quem],
+      ["local", i.local],
+      ["atrações", idsAtracoes(i).flatMap((id) => nomeAtracao.get(id) ?? []).join(", ")],
+      ["status", statusAberto(i.status)],
+      ["detalhe", i.detalhe],
+    ]);
+  };
+  const linhas = [
+    "## Plano das crianças (hora a hora, horário de Orlando: o que as crianças fazem e com quem enquanto os adultos vão nos brinquedos. Entre colchetes, pra quem é o item: todos juntos, adultos ou crianças. Dia que não aparece aqui não tem plano hora a hora.)",
+  ];
+  for (const d of dias) {
+    const doDia = itens.filter((i) => i.roteiroId === d.id);
+    if (doDia.length === 0) continue;
+    linhas.push(`### ${data(d.data)} · ${d.titulo}`);
+    let bloco: string | null = null;
+    for (const i of doDia.filter((x) => x.plano !== "D")) {
+      if (i.bloco && i.bloco !== bloco) linhas.push(`${i.bloco}:`);
+      bloco = i.bloco;
+      linhas.push(linha(i));
+    }
+    const reserva = doDia.filter((x) => x.plano === "D");
+    if (reserva.length > 0) linhas.push("Se o dia desandar (plano D):", ...reserva.map(linha));
+  }
+  return linhas.join("\n");
+}
+
 // Bloco 2: igual pra todo logado (é o que qualquer um vê nas telas).
 export async function contextoViagem(): Promise<string> {
   const secoes = await Promise.all([
@@ -304,6 +347,7 @@ export async function contextoViagem(): Promise<string> {
     secaoGuia(),
     secaoDecisoes(),
     secaoAtracoes(),
+    secaoPlanoCriancas(),
   ]);
   return `# Dados da viagem\n\n${secoes.filter(Boolean).join("\n\n")}`;
 }
@@ -413,6 +457,7 @@ async function secaoPendencias(): Promise<string> {
 // Bloco 3: só o que esta pessoa pode ver — vem depois do cache e muda por usuário/dia.
 export async function contextoUsuario(user: User): Promise<string> {
   const hoje = hojeBrasilia();
+  const orlando = agoraOrlando();
   const faltam = diasAte(TRIP_INICIO);
   const secoes = await Promise.all([
     secaoFinanceiro(user),
@@ -430,6 +475,7 @@ export async function contextoUsuario(user: User): Promise<string> {
     `Hoje (horário de Brasília): ${data(hoje)} · ${
       faltam > 0 ? `faltam ${faltam} dias pro embarque` : faltam === 0 ? "o embarque é hoje" : "a viagem já começou"
     }`,
+    `Agora em Orlando: ${data(orlando.data)}, ${orlando.hora} (os horários do roteiro e do plano das crianças são de Orlando)`,
   ].join("\n");
   return [quem, ...secoes.filter(Boolean)].join("\n\n");
 }
